@@ -1,12 +1,15 @@
+import { Container } from "@/components/layout/container";
+import { Section } from "@/components/layout/section";
+
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-      <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-        Soup is happening.
-      </h1>
-      <p className="text-lg text-muted-foreground">
-        Everyone brings soup. Everyone eats soup.
-      </p>
-    </main>
+    <Section className="flex flex-1 items-center">
+      <Container>
+        <h1 className="type-display">Soup is happening.</h1>
+        <p className="type-lead mt-5 text-muted-foreground sm:mt-8">
+          Everyone brings soup. Everyone eats soup.
+        </p>
+      </Container>
+    </Section>
   );
 }
