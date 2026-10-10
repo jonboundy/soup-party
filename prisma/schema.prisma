@@ -1,0 +1,88 @@
+// Relations and constraints are described in docs/data-model.md.
+// CHECK constraints cannot be expressed here; they live in the migration SQL.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RsvpStatus {
+  ATTENDING
+  DECLINED
+
+  @@map("rsvp_status")
+}
+
+enum SoupCategory {
+  BROTH
+  CREAMY
+  VEGETABLE
+  BEAN
+  NOODLE
+  MEAT
+  SEAFOOD
+  STEW
+  CHILLED
+  OTHER
+
+  @@map("soup_category")
+}
+
+/// Event configuration. There is exactly one row, with id 1; the first
+/// migration inserts it and a CHECK constraint prevents a second.
+model Event {
+  id            Int       @id @default(1)
+  title         String
+  /// The instant the event starts. Null until the date is known.
+  startsAt      DateTime? @map("starts_at") @db.Timestamptz(3)
+  /// IANA zone used to display startsAt, e.g. "America/New_York".
+  /// Required once startsAt is set.
+  timeZone      String?   @map("time_zone")
+  locationLabel String?   @map("location_label")
+  address       String?
+  instructions  String?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("events")
+}
+
+model Rsvp {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attendeeName  String     @map("attendee_name")
+  status        RsvpStatus
+  /// People attending, including the guest. Null when declined.
+  partySize     Int?       @map("party_size")
+  /// Hash of the private edit token. The raw token is never stored.
+  editTokenHash String     @unique @map("edit_token_hash")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  soup Soup?
+
+  @@map("rsvps")
+}
+
+/// At most one soup per RSVP in v1.0. A soup is active only while its RSVP
+/// is ATTENDING.
+model Soup {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rsvpId         String       @unique @map("rsvp_id") @db.Uuid
+  name           String
+  /// Name reduced for duplicate detection. Indexed but deliberately not
+  /// unique: similar soups produce a warning, never a rejection.
+  normalizedName String       @map("normalized_name")
+  category       SoupCategory
+  description    String?
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  rsvp Rsvp @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+
+  @@index([normalizedName])
+  @@map("soups")
+}

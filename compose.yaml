@@ -1,0 +1,22 @@
+# Local PostgreSQL for development and tests. Start it with `npm run db:up`.
+name: soup-party
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: soup
+      POSTGRES_PASSWORD: soup
+      POSTGRES_DB: soup_party
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soup -d soup_party"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  db-data:
