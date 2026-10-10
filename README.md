@@ -9,14 +9,18 @@ Standalone Next.js app, deployed separately from jonboundy.com at soup.jonboundy
 - Next.js (App Router) and TypeScript
 - Tailwind CSS v4
 - shadcn/ui (`base-nova` style, Base UI primitives)
-- ESLint
+- PostgreSQL with Prisma
+- ESLint and Vitest
 
 ## Development
 
-Requires Node.js 20 or later.
+Requires Node.js 20.19 or later, and Docker for the local database.
 
 ```bash
 npm install
+cp .env.example .env
+npm run db:up
+npm run db:migrate
 npm run dev
 ```
 
@@ -29,18 +33,45 @@ The app runs at http://localhost:3000.
 | `npm run start` | Serve the production build |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Generate route types and run the TypeScript compiler |
+| `npm test` | Run the tests |
+| `npm run db:up` | Start the local PostgreSQL container |
+| `npm run db:migrate` | Apply migrations in development, creating one if the schema changed |
+| `npm run db:deploy` | Apply pending migrations without creating any (production) |
+| `npm run db:studio` | Browse and edit data in Prisma Studio |
 
 ## Structure
 
 ```
+docs/                  Reference documentation
+prisma/                Database schema and migrations
 src/
   app/                 Routes, layouts and global styles
   components/layout/   Page structure: container, section, site header and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
-  lib/                 Shared utilities
+  generated/prisma/    Prisma client (generated, not committed)
+  lib/                 Shared utilities and the database client
+tests/                 Tests that need a database
 ```
 
 Import from `src` with the `@/` alias, e.g. `@/components/ui/button`.
+
+## Database
+
+The app reads `DATABASE_URL`. `compose.yaml` runs PostgreSQL 17 on port 54329 with the credentials in `.env.example`; any other PostgreSQL database works if you point `DATABASE_URL` at it.
+
+Query through the shared client, on the server only:
+
+```ts
+import { db } from "@/lib/db";
+
+const event = await db.event.findUniqueOrThrow({ where: { id: 1 } });
+```
+
+The Prisma client is generated into `src/generated/prisma` on `npm install` and whenever `npm run db:migrate` runs. Model and enum types come from `@/generated/prisma/client`.
+
+Tables, relations and constraints are documented in [docs/data-model.md](docs/data-model.md).
+
+`npm test` uses a separate database, the one in `DATABASE_URL` with `_test` appended to its name. It is created and migrated automatically, and the tests delete its RSVPs as they go.
 
 ## Design system
 
