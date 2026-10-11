@@ -72,6 +72,12 @@
   --soup-broth-deep: oklch(0.54 0.19 31);
   --soup-broth-shade: oklch(0.43 0.15 29);
   --soup-pasta: oklch(0.94 0.06 92);
+  /* The other soups in the bowls that fall behind the home page. */
+  --soup-pea: oklch(0.72 0.13 128);
+  --soup-squash: oklch(0.78 0.15 68);
+  --soup-chowder: oklch(0.94 0.035 90);
+  --soup-borscht: oklch(0.46 0.17 8);
+  --soup-chicken: oklch(0.83 0.11 88);
 }
 
 @media (width >= 40rem) {
@@ -160,6 +166,85 @@
   from {
     opacity: 0;
     translate: 0 1.75rem;
+  }
+}
+
+/* The cascade behind the home page. Each bowl falls from just above the
+   window to just below it, over and over, rocking a little as it goes;
+   `SoupCascade` gives each its column and speed. A bowl's own position is
+   where it would be when the page loads, and the animation starts from there,
+   so the page opens mid-fall and, with reduced motion, stays exactly like
+   that. Only translate and rotate change, so nothing is laid out or painted
+   again. */
+@layer components {
+  [data-slot="soup-cascade"] {
+    /* Bowls fade in below the header and out before the bottom edge. */
+    mask-image: linear-gradient(transparent 4rem, black 30%, black 80%, transparent);
+  }
+  /* Bowls are sized in em, so a narrow screen shrinks them all at once. */
+  @media (width < 40rem) {
+    [data-slot="soup-cascade"] {
+      font-size: 0.85rem;
+    }
+  }
+  [data-slot="soup-cascade"] > span {
+    --size: 3.75em;
+    position: absolute;
+    top: 0;
+    left: var(--x);
+    width: var(--size);
+    margin-left: calc(var(--size) / -2);
+    opacity: 0.55;
+    translate: calc(var(--start) * var(--drift)) calc(var(--start) * 124vh - 12vh);
+    animation: soup-cascade var(--seconds) linear infinite;
+    animation-delay: calc(var(--start) * var(--seconds) * -1);
+  }
+  [data-slot="soup-cascade"] > [data-depth="1"] {
+    --size: 3em;
+    opacity: 0.4;
+  }
+  [data-slot="soup-cascade"] > [data-depth="0"] {
+    --size: 2.25em;
+    opacity: 0.28;
+  }
+  [data-slot="soup-cascade"] svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    animation: soup-cascade-rock 7s ease-in-out infinite alternate;
+    /* Out of step with each other. */
+    animation-delay: calc(var(--start) * -14s);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="soup-cascade"] > span,
+    [data-slot="soup-cascade"] svg {
+      animation: none;
+    }
+  }
+  /* Asked for more contrast, the page keeps its background plain. */
+  @media (prefers-contrast: more), (forced-colors: active) {
+    [data-slot="soup-cascade"] {
+      display: none;
+    }
+  }
+}
+
+@keyframes soup-cascade {
+  from {
+    translate: 0 -12vh;
+  }
+  to {
+    translate: var(--drift) 112vh;
+  }
+}
+
+@keyframes soup-cascade-rock {
+  from {
+    rotate: -7deg;
+  }
+  to {
+    rotate: 7deg;
   }
 }
 
