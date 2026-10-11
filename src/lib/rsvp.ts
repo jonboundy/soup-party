@@ -81,16 +81,22 @@ export async function getEditableRsvp(token: unknown) {
 /** Authorization and both writes share a transaction. No client RSVP id is used. */
 export async function updateRsvp(token: unknown, input: RsvpInput) {
   if (!isEditToken(token)) return false;
+  return writeRsvp({ editTokenHash: hashEditToken(token) }, input);
+}
+
+/**
+ * Replaces an RSVP's answers and its soup in one transaction. False when no
+ * such RSVP exists. The caller has already authorized the write: a guest by
+ * the token behind the hash, the host by their session.
+ */
+export async function writeRsvp(where: { editTokenHash: string } | { id: string }, input: RsvpInput) {
   return db.$transaction(async (tx) => {
     const rsvp = await tx.rsvp.updateMany({
-      where: { editTokenHash: hashEditToken(token) },
+      where,
       data: { attendeeName: input.attendeeName, status: input.status, partySize: input.partySize },
     });
     if (rsvp.count !== 1) return false;
-    const { id } = await tx.rsvp.findUniqueOrThrow({
-      where: { editTokenHash: hashEditToken(token) },
-      select: { id: true },
-    });
+    const { id } = await tx.rsvp.findUniqueOrThrow({ where, select: { id: true } });
     // Declines release the soup publicly but keep its details for a later return.
     if (input.status === "ATTENDING") {
       if (input.soup) {
