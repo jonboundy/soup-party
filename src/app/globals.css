@@ -65,6 +65,13 @@
   --ring: oklch(0.2 0.012 60);
   --radius: 0.625rem;
   --header-height: 4rem;
+  /* The bowl of alphabet soup: glazed white, tomato broth, pasta. */
+  --soup-bowl: oklch(0.995 0.004 85);
+  --soup-bowl-shade: oklch(0.925 0.014 80);
+  --soup-broth: oklch(0.63 0.19 38);
+  --soup-broth-deep: oklch(0.54 0.19 31);
+  --soup-broth-shade: oklch(0.43 0.15 29);
+  --soup-pasta: oklch(0.94 0.06 92);
 }
 
 @media (width >= 40rem) {

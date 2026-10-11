@@ -49,7 +49,7 @@ prisma/                Database schema and migrations
 scripts/               Command-line helpers
 src/
   app/                 Routes, layouts and global styles
-  components/home/     Homepage sections, in page order
+  components/home/     Homepage sections, in page order, and the hero's bowl of soup
   components/host/     The host's sign-in form, RSVP overview and correction form
   components/layout/   Page structure: container, section, reveal, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
@@ -101,6 +101,19 @@ The homepage's “The soups.” section lists active soups alphabetically, with 
 `getPublicSoups` in `src/lib/public-soups.ts` selects only approved display fields and filters to attending RSVPs. Private RSVP fields, identifiers, edit tokens, and surnames are excluded from its result. The query uses a cache tagged `soups`, with a 1-second revalidation interval, 5-minute client stale time, and 5-minute expiry; a successful soup registration immediately expires that tag and refreshes the submitting guest's page. Other visits revalidate shortly afterward; an already-open page updates on a new visit or reload. Guest edit/cancel actions and the host's corrections and removals invalidate the same tag.
 
 The list is included in the initial HTML, with a “Loading…” label on the Soups navigation link while navigation is pending. The registry shows “No soups yet.” when empty (including previews without a database), and reports an unavailable state on database errors.
+
+## Alphabet soup
+
+The hero's bowl (`src/components/home/alphabet-soup.tsx`) is tomato alphabet soup seen from above, and it can be stirred.
+
+- **Stirring.** A cursor moving through the broth stirs it; no button is held. On a touch screen a drag stirs. A swipe that starts vertically scrolls the page as it would anywhere else (`touch-action: pan-y`), so the bowl never traps a scroll; a stir that starts sideways can then go in any direction.
+- **Motion.** `src/lib/alphabet-soup.ts` treats the broth as an incompressible fluid on a 28-cell grid across the bowl. A stroke drags the broth near it along, the rest circulates round the bowl, and it all slows to a stop in about ten seconds. Each letter travels with the broth under it and turns with its eddies; letters that drift onto each other ease apart, and none leaves the bowl. Nothing in the module touches the DOM.
+- **When it runs.** Only while the bowl is on screen and something in it is still moving. The soup is turning slightly when first seen, as if just served, and settles. Once still, no animation frames are requested until the next stir. Scrolled out of view it pauses where it is, and carries on when it returns.
+- **Without motion.** The server renders the bowl complete, with its 40 letters in a fixed arrangement, so it is there before JavaScript loads and without it. With `prefers-reduced-motion` it stays exactly like that and does not respond to stirring.
+- **Markup.** Two stacked SVGs: the bowl, and the letters as text in the site's typeface on a layer of their own, so moving them does not repaint the bowl. Together they are one image named “A bowl of alphabet soup.” The letters spell nothing and are not read out.
+- **Letters.** The whole alphabet, a second set of the letters in SOUP PARTY, and a few more vowels. `layoutSoupLetters` scatters them from a seed with integer arithmetic only, so the server and every browser agree on where they start.
+
+The bowl sits beside the hero text from the `lg` breakpoint and below the call to action on smaller screens. Its colours are the `--soup-*` tokens in `src/app/globals.css`.
 
 ## Host sign-in
 
