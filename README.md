@@ -47,7 +47,8 @@ docs/                  Reference documentation
 prisma/                Database schema and migrations
 src/
   app/                 Routes, layouts and global styles
-  components/layout/   Page structure: container, section, site header and footer
+  components/home/     Homepage sections, in page order
+  components/layout/   Page structure: container, section, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
   lib/                 Shared utilities and the database client

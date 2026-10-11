@@ -1,15 +1,17 @@
-import { Container } from "@/components/layout/container";
-import { Section } from "@/components/layout/section";
+import { EventDetails } from "@/components/home/event-details";
+import { Hero } from "@/components/home/hero";
+import { Premise } from "@/components/home/premise";
+import { Rsvp } from "@/components/home/rsvp";
+import { SoupRegistry } from "@/components/home/soup-registry";
 
 export default function Home() {
   return (
-    <Section className="flex flex-1 items-center">
-      <Container>
-        <h1 className="type-display">Soup is happening.</h1>
-        <p className="type-lead mt-5 text-muted-foreground sm:mt-8">
-          Everyone brings soup. Everyone eats soup.
-        </p>
-      </Container>
-    </Section>
+    <>
+      <Hero />
+      <Premise />
+      <EventDetails />
+      <SoupRegistry />
+      <Rsvp />
+    </>
   );
 }
