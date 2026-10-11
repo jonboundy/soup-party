@@ -23,8 +23,9 @@ Event configuration. There is exactly one row, with `id` 1. The first migration 
 | `starts_at` | `timestamptz` | Null until the date is known. |
 | `time_zone` | `text` | IANA zone used to display `starts_at`, e.g. `America/New_York`. |
 | `location_label` | `text` | Nullable. |
-| `address` | `text` | Nullable. |
-| `instructions` | `text` | Nullable. |
+| `address` | `text` | Nullable. May span several lines. |
+| `map_url` | `text` | Nullable. Link to a map or directions. |
+| `instructions` | `text` | Nullable. May span several lines. |
 | `created_at`, `updated_at` | `timestamptz` | |
 
 `starts_at` stores an instant, not a wall-clock time, so `time_zone` is what turns it back into "6:00 PM" for guests.
@@ -79,6 +80,7 @@ The soup a guest intends to bring. Optional: an RSVP with no soup row is a guest
 | `events_singleton_check` | `events` | `id = 1`, so there is only ever one row. |
 | `events_time_zone_check` | `events` | `time_zone` is required once `starts_at` is set. |
 | `events_title_check` | `events` | `title` is not blank. |
+| `events_map_url_check` | `events` | `map_url`, when set, starts with `http://` or `https://` and has no spaces. |
 | `rsvps_attendee_name_check` | `rsvps` | `attendee_name` is not blank. |
 | `rsvps_party_size_check` | `rsvps` | Attending: `party_size` is at least 1. Declined: `party_size` is null. |
 | `rsvps_edit_token_hash_key` | `rsvps` | `edit_token_hash` is unique. |
@@ -100,8 +102,9 @@ Prisma's schema language has no syntax for `CHECK` constraints, so the `_check` 
 ## Changing the schema
 
 1. Edit `prisma/schema.prisma`.
-2. Run `npm run db:migrate -- --name describe-the-change`. This writes a migration, applies it to the development database and regenerates the client.
-3. Commit the new directory under `prisma/migrations`.
+2. Run `npm run db:migrate -- --name describe-the-change`. This writes a migration and applies it to the development database.
+3. Run `npx prisma generate` to regenerate the client.
+4. Commit the new directory under `prisma/migrations`.
 
 To add a `CHECK` constraint or other hand-written SQL, pass `--create-only`, edit the generated `migration.sql`, then run `npm run db:migrate` again to apply it.
 
@@ -114,7 +117,15 @@ UPDATE events
 SET starts_at = '2026-11-14 18:00 America/New_York',
     time_zone = 'America/New_York',
     location_label = 'The house',
-    address = '1 Example Street',
+    address = E'1 Example Street\nSpringfield',
+    map_url = 'https://maps.example.com/?q=1+Example+Street',
+    instructions = 'Bring a ladle.',
     updated_at = now()
 WHERE id = 1;
 ```
+
+The homepage's details section reads this row and shows the change within about a minute; no deploy is needed. Every column is optional. One that is null or blank is shown as "To be announced." rather than guessed at, and setting a column back to `NULL` restores that.
+
+- The date and time both come from `starts_at`, displayed in `time_zone`. If `time_zone` is not a zone name the server recognizes, neither is shown.
+- `map_url` adds a "Map and directions" link under the location.
+- Line breaks in `address` and `instructions` are kept.

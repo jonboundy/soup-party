@@ -28,7 +28,7 @@ beforeEach(async () => {
   await db.rsvp.deleteMany();
   await db.event.update({
     where: { id: 1 },
-    data: { startsAt: null, timeZone: null },
+    data: { startsAt: null, timeZone: null, mapUrl: null },
   });
 });
 
@@ -64,6 +64,16 @@ describe("Event", () => {
       data: { startsAt, timeZone: "America/New_York" },
     });
     expect(event.startsAt).toEqual(startsAt);
+  });
+
+  it("accepts only a web address as the map link", async () => {
+    await expect(
+      db.event.update({ where: { id: 1 }, data: { mapUrl: "javascript:alert(1)" } }),
+    ).rejects.toThrow("events_map_url_check");
+
+    const mapUrl = "https://maps.example.com/?q=1+Example+Street";
+    const event = await db.event.update({ where: { id: 1 }, data: { mapUrl } });
+    expect(event.mapUrl).toBe(mapUrl);
   });
 });
 

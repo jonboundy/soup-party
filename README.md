@@ -52,7 +52,7 @@ src/
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
   lib/                 Shared utilities and the database client
-tests/                 Tests that need a database
+tests/                 Tests, most of which need a database
 ```
 
 Import from `src` with the `@/` alias, e.g. `@/components/ui/button`.
@@ -69,9 +69,9 @@ import { db } from "@/lib/db";
 const event = await db.event.findUniqueOrThrow({ where: { id: 1 } });
 ```
 
-The Prisma client is generated into `src/generated/prisma` on `npm install` and whenever `npm run db:migrate` runs. Model and enum types come from `@/generated/prisma/client`.
+The Prisma client is generated into `src/generated/prisma` on `npm install`. After changing the schema, run `npx prisma generate` to update it. Model and enum types come from `@/generated/prisma/client`.
 
-Tables, relations and constraints are documented in [docs/data-model.md](docs/data-model.md).
+Tables, relations and constraints are documented in [docs/data-model.md](docs/data-model.md), along with how to set the event's date, time, location and instructions.
 
 `npm test` uses a separate database, the one in `DATABASE_URL` with `_test` appended to its name. It is created and migrated automatically, and the tests delete its RSVPs as they go.
 

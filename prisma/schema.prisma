@@ -44,6 +44,8 @@ model Event {
   timeZone      String?   @map("time_zone")
   locationLabel String?   @map("location_label")
   address       String?
+  /// Optional link to a map or directions. Must be an http(s) URL.
+  mapUrl        String?   @map("map_url")
   instructions  String?
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
