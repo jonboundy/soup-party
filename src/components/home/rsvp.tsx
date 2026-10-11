@@ -11,7 +11,7 @@ function Rsvp() {
   return (
     <Section id="rsvp" aria-labelledby="rsvp-title" className="border-t">
       <Container>
-        <SectionHeader className="mb-0 sm:mb-0">
+        <SectionHeader reveal className="mb-0 sm:mb-0">
           <SectionEyebrow>RSVP</SectionEyebrow>
           <SectionTitle id="rsvp-title">Will you be there?</SectionTitle>
           <SectionDescription>RSVPs are not open yet.</SectionDescription>

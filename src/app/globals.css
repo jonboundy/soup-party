@@ -119,6 +119,43 @@
   }
 }
 
+/* Section reveals. `Reveal` marks itself pending, then shown, and its children
+   fade up one after another. Only opacity and translate change, so nothing
+   around them moves. */
+@layer components {
+  [data-reveal="pending"] > * {
+    opacity: 0;
+  }
+  [data-reveal="shown"] > * {
+    animation: reveal 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--reveal-index, 0) * 110ms);
+  }
+  [data-reveal] > :nth-child(2) {
+    --reveal-index: 1;
+  }
+  [data-reveal] > :nth-child(3) {
+    --reveal-index: 2;
+  }
+  [data-reveal] > :nth-child(4) {
+    --reveal-index: 3;
+  }
+  [data-reveal] > :nth-child(n + 5) {
+    --reveal-index: 4;
+  }
+  @media print {
+    [data-reveal="pending"] > * {
+      opacity: 1;
+    }
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    translate: 0 1.75rem;
+  }
+}
+
 /* Type scale. Named `type-*` rather than `text-*` so `cn` does not mistake
    them for text colors and drop them when merging classes. */
 @utility type-display {

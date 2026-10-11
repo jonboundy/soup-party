@@ -1,6 +1,8 @@
 import * as React from "react"
 import { cn } from "cn"
 
+import { Reveal } from "@/components/layout/reveal"
+
 function Section({ className, ...props }: React.ComponentProps<"section">) {
   return (
     <section
@@ -11,9 +13,15 @@ function Section({ className, ...props }: React.ComponentProps<"section">) {
   )
 }
 
-function SectionHeader({ className, ...props }: React.ComponentProps<"div">) {
+function SectionHeader({
+  className,
+  reveal = false,
+  ...props
+}: React.ComponentProps<"div"> & { reveal?: boolean }) {
+  const Comp = reveal ? Reveal : "div"
+
   return (
-    <div
+    <Comp
       data-slot="section-header"
       className={cn(
         "mb-10 flex max-w-2xl flex-col gap-3 sm:mb-14 sm:gap-4",

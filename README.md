@@ -48,7 +48,7 @@ prisma/                Database schema and migrations
 src/
   app/                 Routes, layouts and global styles
   components/home/     Homepage sections, in page order
-  components/layout/   Page structure: container, section, site header, nav and footer
+  components/layout/   Page structure: container, section, reveal, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
   lib/                 Shared utilities and the database client
@@ -92,4 +92,5 @@ Warm off-white surfaces, near-black type and one tomato accent. Everything is on
 - **Tokens** live in `src/app/globals.css`. `brand` is the accent and is used sparingly; `accent` is shadcn's hover surface. The site is light-only.
 - **Type** uses the `type-display`, `type-title`, `type-heading`, `type-lead` and `type-eyebrow` utilities, which scale with the viewport.
 - **Layout** is `Container` (page gutters and max width, `size="narrow"` for forms) inside `Section` (vertical rhythm). The root layout supplies the header, footer and skip link.
+- **Motion** is brief and quiet. In-page links scroll smoothly. `Reveal`, or `<SectionHeader reveal>`, fades its children up one after another the first time it scrolls into view. They are only hidden once the browser has confirmed they are below the fold, so they stay visible without JavaScript, with reduced motion and in print.
 - **Controls** are 44px tall by default so they are comfortable to tap. Text and control outlines meet WCAG AA contrast, and `prefers-contrast` and `prefers-reduced-motion` are honored.
