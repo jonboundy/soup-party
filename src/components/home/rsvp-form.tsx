@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 
-import { submitRsvp } from "@/app/actions"
+import { cancelGuestRsvp, editRsvp, submitRsvp } from "@/app/actions"
+import { PrivateEditLink } from "@/components/private-edit-link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +34,7 @@ import {
   type RsvpErrors,
   type RsvpField,
   type RsvpFormState,
+  type EditableRsvp,
 } from "@/lib/rsvp-form"
 import { SOUP_CATEGORIES } from "@/lib/soup-categories"
 
@@ -45,10 +48,14 @@ const partySizes = Array.from({ length: MAX_PARTY_SIZE }, (_, index) => ({
 // same way as a response the server could not save.
 async function submit(
   previous: RsvpFormState,
-  formData: FormData
+  formData: FormData,
+  editing: boolean,
 ): Promise<RsvpFormState> {
   try {
-    return await submitRsvp(previous, formData)
+    if (editing && formData.get("confirmCancel") === "yes") {
+      return await cancelGuestRsvp(previous, formData)
+    }
+    return await (editing ? editRsvp : submitRsvp)(previous, formData)
   } catch {
     return { status: "failed" }
   }
@@ -56,8 +63,10 @@ async function submit(
 
 function Confirmation({
   state,
+  editing,
 }: {
   state: Extract<RsvpFormState, { status: "attending" | "declined" }>
+  editing: boolean
 }) {
   const title = React.useRef<HTMLHeadingElement>(null)
 
@@ -70,9 +79,11 @@ function Confirmation({
   return (
     <div className="flex flex-col gap-2">
       <h3 ref={title} tabIndex={-1} className="type-heading outline-none">
-        {state.status === "attending"
-          ? "You’re on the list."
-          : "Your regrets have been recorded."}
+        {editing
+          ? "Your RSVP has been updated."
+          : state.status === "attending"
+            ? "You’re on the list."
+            : "Your regrets have been recorded."}
       </h3>
       <p className="type-lead text-muted-foreground [overflow-wrap:anywhere]">
         {state.status === "attending"
@@ -91,22 +102,45 @@ function Confirmation({
           )}
         </p>
       )}
+      <PrivateEditLink editPath={state.editPath} />
     </div>
   )
 }
 
-function RsvpForm() {
+function RsvpForm({
+  initial,
+  editToken,
+}: {
+  initial?: EditableRsvp
+  editToken?: string
+}) {
+  const editing = !!editToken
   const [state, formAction, pending] = React.useActionState<
     RsvpFormState,
     FormData
-  >(submit, { status: "idle" })
-  const [attendance, setAttendance] = React.useState("")
-  const [partySize, setPartySize] = React.useState("1")
-  const [soupName, setSoupName] = React.useState("")
-  const [soupCategory, setSoupCategory] = React.useState<string | null>(null)
+  >((previous, data) => submit(previous, data, editing), { status: "idle" })
+  const [attendance, setAttendance] = React.useState(
+    initial ? initial.status === "ATTENDING" ? "attending" : "declined" : ""
+  )
+  const [partySize, setPartySize] = React.useState(String(initial?.partySize ?? 1))
+  const [soupName, setSoupName] = React.useState(initial?.soup?.name ?? "")
+  const [soupCategory, setSoupCategory] = React.useState<string | null>(
+    initial?.soup?.category ?? null
+  )
+  const [soupDescription, setSoupDescription] = React.useState(
+    initial?.soup?.description ?? ""
+  )
+  const [confirmCancel, setConfirmCancel] = React.useState(false)
+  const outcome = React.useRef<HTMLHeadingElement>(null)
   // Fields changed since the last response. Their errors no longer apply.
   const [corrected, setCorrected] = React.useState<RsvpField[]>([])
   const form = React.useRef<HTMLFormElement>(null)
+
+  React.useEffect(() => {
+    if (confirmCancel) {
+      form.current?.querySelector<HTMLElement>("#rsvp-confirm-cancel")?.focus()
+    }
+  }, [confirmCancel])
 
   // After a rejected submission, focus goes to the first field that needs
   // correcting, or back to the button when the response was not saved.
@@ -120,10 +154,26 @@ function RsvpForm() {
     } else if (state.status === "duplicate") {
       form.current?.querySelector<HTMLElement>("#rsvp-duplicate-title")?.focus()
     }
+    if (state.status === "cancelled" || state.status === "unauthorized") {
+      outcome.current?.focus()
+    }
   }, [state])
 
   if (state.status === "attending" || state.status === "declined") {
-    return <Confirmation state={state} />
+    return <Confirmation state={state} editing={editing} />
+  }
+
+  if (state.status === "cancelled" || state.status === "unauthorized") {
+    return <div className="flex max-w-md flex-col gap-3">
+      <h2 ref={outcome} tabIndex={-1} className="type-heading outline-none">
+        {state.status === "cancelled" ? "Your RSVP has been cancelled." : "This edit link is not valid."}
+      </h2>
+      <p className="text-muted-foreground">
+        {state.status === "cancelled" ? "You’re no longer on the attending list. Your soup has been released." : "Open the private link saved from your RSVP confirmation."}
+      </p>
+      {state.status === "cancelled" && <a href={`/rsvp/edit?token=${editToken}`} className="underline underline-offset-4">Change your response</a>}
+      <Link href="/" className="underline underline-offset-4">Back to Soup Party</Link>
+    </div>
   }
 
   const errors: RsvpErrors = {}
@@ -164,6 +214,7 @@ function RsvpForm() {
       noValidate
       className="max-w-md"
     >
+      {editing && <input type="hidden" name="editToken" value={editToken} />}
       <FieldGroup className="gap-7">
         <Field data-invalid={!!errors.name}>
           <FieldLabel htmlFor="rsvp-name">Name</FieldLabel>
@@ -174,6 +225,7 @@ function RsvpForm() {
             autoCapitalize="words"
             maxLength={NAME_MAX_LENGTH}
             required
+            defaultValue={initial?.attendeeName}
             onChange={() => correct("name")}
             aria-invalid={!!errors.name}
             aria-describedby={
@@ -352,7 +404,11 @@ function RsvpForm() {
                 id="rsvp-soup-description"
                 name="soupDescription"
                 maxLength={SOUP_DESCRIPTION_MAX_LENGTH}
-                onChange={() => correct("soupDescription")}
+                value={soupDescription}
+                onChange={(event) => {
+                  setSoupDescription(event.target.value)
+                  correct("soupDescription")
+                }}
                 aria-invalid={!!errors.soupDescription}
                 aria-describedby={
                   errors.soupDescription
@@ -420,9 +476,28 @@ function RsvpForm() {
             </Button>
           )}
           <Button type="submit" size="lg" disabled={pending}>
-            {pending ? "Sending" : warning ? "Register this soup anyway" : "RSVP"}
+            {pending
+              ? "Saving"
+              : warning
+                ? "Register this soup anyway"
+                : editing ? "Save changes" : "RSVP"}
           </Button>
         </div>
+        {editing && <div className="flex flex-col gap-3 border-t pt-7">
+          {confirmCancel ? <>
+            <p className="font-medium">Cancel your RSVP?</p>
+            <p className="text-sm text-muted-foreground">You’ll be removed from the attending list and your soup will be released. You can return using this link.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button id="rsvp-confirm-cancel" type="button" variant="destructive" disabled={pending} onClick={() => {
+                const data = new FormData()
+                data.set("editToken", editToken!)
+                data.set("confirmCancel", "yes")
+                React.startTransition(() => formAction(data))
+              }}>{pending ? "Saving" : "Yes, cancel RSVP"}</Button>
+              <Button type="button" variant="outline" disabled={pending} onClick={() => setConfirmCancel(false)}>Keep RSVP</Button>
+            </div>
+          </> : <Button type="button" variant="outline" disabled={pending} className="self-start" onClick={() => setConfirmCancel(true)}>Cancel RSVP</Button>}
+        </div>}
       </FieldGroup>
     </form>
   )

@@ -14,13 +14,16 @@ export async function getPublicSoups() {
 }
 
 /** Fresh public projection for pre-submission checks, outside the registry cache. */
-export async function readPublicSoups() {
+export async function readPublicSoups(excludeEditTokenHash?: string) {
   // Preview deployments have no database.
   if (!process.env.DATABASE_URL) return [];
 
   const { db } = await import("@/lib/db");
   const soups = await db.soup.findMany({
-    where: { rsvp: { status: "ATTENDING" } },
+    where: { rsvp: {
+      status: "ATTENDING",
+      ...(excludeEditTokenHash ? { editTokenHash: { not: excludeEditTokenHash } } : {}),
+    } },
     orderBy: [{ name: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     select: {
       name: true,

@@ -20,6 +20,8 @@ Snapshot of PRD §7–8 as of 2026-10-10; see [prd and jira links](prd-and-jira-
 ## Edit tokens
 Store only a hash (`editTokenHash`); never store the raw token. The private edit URL carries a high-entropy raw token that is validated against the hash server-side. Tokens must never appear in public endpoints or logs.
 
+Implemented during SP-17 (2026-10-10): confirmations display a copyable private link. Cancellation uses `DECLINED` with a null party size, retaining soup details privately and keeping the link usable for a later return. Clearing the soup name while attending removes the soup row. Guest edits and cancellation invalidate the public registry cache. See the README and data-model documentation for current behavior.
+
 ## Public/private boundaries
 - Public reads expose only active soups and approved fields: name, category, description, contributor display name. No edit tokens, raw email, admin metadata, or full RSVP records.
 - Writes validate server-side, enforce limits/rate limiting, and prevent mass assignment.

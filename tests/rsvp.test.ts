@@ -51,7 +51,7 @@ describe("submitRsvp", () => {
   it("stores an attending guest and their party size", async () => {
     const result = await submit({ name: " Ada Lovelace ", attendance: "attending", partySize: "3" });
 
-    expect(result).toEqual({ status: "attending", name: "Ada Lovelace", partySize: 3, soup: null });
+    expect(result).toEqual({ status: "attending", name: "Ada Lovelace", partySize: 3, soup: null, editPath: expect.any(String) });
     expect(updateTag).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
     expect(await db.rsvp.findMany()).toMatchObject([
@@ -67,6 +67,7 @@ describe("submitRsvp", () => {
       name: "Ada Lovelace",
       partySize: 2,
       soup: "Minestrone Soup",
+      editPath: expect.any(String),
     });
     const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
     expect(updateTag).toHaveBeenCalledExactlyOnceWith("soups");
@@ -98,7 +99,7 @@ describe("submitRsvp", () => {
   it("stores no soup for a declining guest, even if one was sent", async () => {
     const result = await submit({ ...ada, ...minestrone, attendance: "declined" });
 
-    expect(result).toEqual({ status: "declined", name: "Ada Lovelace" });
+    expect(result).toEqual({ status: "declined", name: "Ada Lovelace", editPath: expect.any(String) });
     expect(await db.rsvp.count({ where: { status: "DECLINED" } })).toBe(1);
     expect(await db.soup.count()).toBe(0);
   });
@@ -203,7 +204,7 @@ describe("submitRsvp", () => {
   it("stores a declining guest without a party size", async () => {
     const result = await submit({ name: "Grace Hopper", attendance: "declined", partySize: "4" });
 
-    expect(result).toEqual({ status: "declined", name: "Grace Hopper" });
+    expect(result).toEqual({ status: "declined", name: "Grace Hopper", editPath: expect.any(String) });
     expect(await db.rsvp.findMany()).toMatchObject([
       { attendeeName: "Grace Hopper", status: "DECLINED", partySize: null },
     ]);
@@ -261,14 +262,18 @@ describe("submitRsvp", () => {
     expect(soup.rsvpId).not.toBe(id);
   });
 
-  it("returns nothing private", async () => {
+  it("returns only the submitting guest’s edit link, without storage identifiers", async () => {
     const result = await submit({ ...ada, ...minestrone });
     const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
 
     expect(JSON.stringify(result)).not.toContain(rsvp.id);
     expect(JSON.stringify(result)).not.toContain(rsvp.soup?.id);
     expect(JSON.stringify(result)).not.toContain(rsvp.editTokenHash);
-    expect(Object.keys(result).sort()).toEqual(["name", "partySize", "soup", "status"]);
+    if (result.status !== "attending") throw new Error("Expected success");
+    const token = new URL(result.editPath, "https://soup.example").searchParams.get("token")!;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(hashEditToken(token)).toBe(rsvp.editTokenHash);
+    expect(Object.keys(result).sort()).toEqual(["editPath", "name", "partySize", "soup", "status"]);
   });
 
   it("reports a failure when there is no database", async () => {
