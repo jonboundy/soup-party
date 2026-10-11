@@ -6,7 +6,7 @@ function Wordmark({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="wordmark"
       className={cn(
-        "inline-flex items-center gap-2 text-base font-semibold tracking-tight",
+        "inline-flex items-center gap-2 text-base font-semibold tracking-tight whitespace-nowrap",
         className
       )}
       {...props}

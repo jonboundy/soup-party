@@ -64,6 +64,13 @@
   --input: oklch(0.6 0.015 70);
   --ring: oklch(0.2 0.012 60);
   --radius: 0.625rem;
+  --header-height: 4rem;
+}
+
+@media (width >= 40rem) {
+  :root {
+    --header-height: 5rem;
+  }
 }
 
 @media (prefers-contrast: more) {
@@ -84,6 +91,9 @@
   html {
     @apply font-sans;
     color-scheme: light;
+    /* Keeps in-page link targets and focused controls clear of the sticky
+       header. */
+    scroll-padding-top: var(--header-height);
   }
   ::selection {
     background-color: color-mix(in oklch, var(--brand) 22%, transparent);
