@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { guestNames } from "@/lib/guest-names";
 import { requireHost } from "@/lib/host-session";
 import { writeRsvp } from "@/lib/rsvp";
 import type { RsvpInput } from "@/lib/rsvp-schema";
@@ -20,11 +21,12 @@ export async function getHostOverview() {
       select: {
         id: true,
         attendeeName: true,
+        secondName: true,
         status: true,
         partySize: true,
         createdAt: true,
         updatedAt: true,
-        soup: { select: { name: true, category: true, description: true, updatedAt: true } },
+        soup: { select: { name: true, updatedAt: true } },
       },
     }),
     db.event.findUnique({ where: { id: 1 }, select: { timeZone: true } }),
@@ -34,13 +36,13 @@ export async function getHostOverview() {
     ...rsvp,
     // A guest may change only the soup, which leaves the RSVP row as it was.
     updatedAt: soup && soup.updatedAt > updatedAt ? soup.updatedAt : updatedAt,
-    soup: soup && { name: soup.name, category: soup.category, description: soup.description },
+    soup: soup && { name: soup.name },
   }));
   const attending = rsvps.filter(({ status }) => status === "ATTENDING");
   const declined = rsvps.filter(({ status }) => status === "DECLINED");
   // A soup is active only while its RSVP is attending, as in the public registry.
   const soups = attending
-    .flatMap(({ soup, attendeeName }) => (soup ? [{ ...soup, attendeeName }] : []))
+    .flatMap(({ soup, ...rsvp }) => (soup ? [{ ...soup, guests: guestNames(rsvp) }] : []))
     .sort((a, b) => a.name.localeCompare(b.name, "en"));
   const undecided = attending.filter(({ soup }) => !soup);
 
@@ -77,9 +79,9 @@ export async function getHostRsvp(id: unknown) {
     where: { id },
     select: {
       attendeeName: true,
+      secondName: true,
       status: true,
-      partySize: true,
-      soup: { select: { name: true, category: true, description: true } },
+      soup: { select: { name: true } },
     },
   });
 }

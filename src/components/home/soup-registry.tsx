@@ -9,7 +9,6 @@ import {
   SectionTitle,
 } from "@/components/layout/section"
 import { getPublicSoups } from "@/lib/public-soups"
-import { SOUP_CATEGORIES } from "@/lib/soup-categories"
 
 async function SoupList() {
   let soups: Awaited<ReturnType<typeof getPublicSoups>>
@@ -37,23 +36,10 @@ async function SoupList() {
   return (
     <ul aria-label="Registered soups" className="border-t">
       {soups.map((soup, index) => (
-        <li
-          key={index}
-          className="grid gap-3 border-b py-6 sm:grid-cols-[1fr_10rem] sm:gap-8 sm:py-8 lg:grid-cols-[1fr_14rem]"
-        >
-          <div className="min-w-0">
-            <h3 className="type-heading [overflow-wrap:anywhere]">{soup.name}</h3>
-            <p className="mt-2 text-muted-foreground [overflow-wrap:anywhere]">
-              Brought by {soup.contributorName}
-            </p>
-            {soup.description && (
-              <p className="mt-3 max-w-2xl whitespace-pre-line [overflow-wrap:anywhere]">
-                {soup.description}
-              </p>
-            )}
-          </div>
-          <p className="type-eyebrow text-muted-foreground sm:pt-1">
-            {SOUP_CATEGORIES.find(({ value }) => value === soup.category)?.label}
+        <li key={index} className="border-b py-6 sm:py-8">
+          <h3 className="type-heading [overflow-wrap:anywhere]">{soup.name}</h3>
+          <p className="mt-2 text-muted-foreground [overflow-wrap:anywhere]">
+            Brought by {soup.contributorName}
           </p>
         </li>
       ))}

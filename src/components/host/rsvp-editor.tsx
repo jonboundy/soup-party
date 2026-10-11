@@ -18,30 +18,15 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import { guestNames } from "@/lib/guest-names"
 import type { HostRsvpState } from "@/lib/host-form"
 import {
-  MAX_PARTY_SIZE,
   NAME_MAX_LENGTH,
-  SOUP_DESCRIPTION_MAX_LENGTH,
   SOUP_NAME_MAX_LENGTH,
   type EditableRsvp,
   type RsvpErrors,
   type RsvpField,
 } from "@/lib/rsvp-form"
-import { SOUP_CATEGORIES } from "@/lib/soup-categories"
-
-const partySizes = Array.from({ length: MAX_PARTY_SIZE }, (_, index) => ({
-  label: index === 0 ? "1 person" : `${index + 1} people`,
-  value: String(index + 1),
-}))
 
 type Action = (previous: HostRsvpState, formData: FormData) => Promise<HostRsvpState>
 
@@ -67,14 +52,7 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
   const [attendance, setAttendance] = React.useState(
     initial.status === "ATTENDING" ? "attending" : "declined"
   )
-  const [partySize, setPartySize] = React.useState(String(initial.partySize ?? 1))
   const [soupName, setSoupName] = React.useState(initial.soup?.name ?? "")
-  const [soupCategory, setSoupCategory] = React.useState<string | null>(
-    initial.soup?.category ?? null
-  )
-  const [soupDescription, setSoupDescription] = React.useState(
-    initial.soup?.description ?? ""
-  )
   const [confirmRemove, setConfirmRemove] = React.useState(false)
   // Fields changed since the last response. Their errors no longer apply.
   const [corrected, setCorrected] = React.useState<RsvpField[]>([])
@@ -168,7 +146,34 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
               </FieldError>
             ) : (
               <FieldDescription id="host-rsvp-name-description">
-                The first name appears beside their soup.
+                First names appear beside their soup.
+              </FieldDescription>
+            )}
+          </Field>
+          <Field data-invalid={!!errors.secondName}>
+            <FieldLabel htmlFor="host-rsvp-second-name">Second guest</FieldLabel>
+            <Input
+              id="host-rsvp-second-name"
+              name="secondName"
+              autoComplete="off"
+              autoCapitalize="words"
+              maxLength={NAME_MAX_LENGTH}
+              defaultValue={initial.secondName ?? undefined}
+              onChange={() => correct("secondName")}
+              aria-invalid={!!errors.secondName}
+              aria-describedby={
+                errors.secondName
+                  ? "host-rsvp-second-name-error"
+                  : "host-rsvp-second-name-description"
+              }
+            />
+            {errors.secondName ? (
+              <FieldError id="host-rsvp-second-name-error">
+                {errors.secondName}
+              </FieldError>
+            ) : (
+              <FieldDescription id="host-rsvp-second-name-description">
+                Blank for a guest on their own.
               </FieldDescription>
             )}
           </Field>
@@ -222,49 +227,6 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
             )}
           </FieldSet>
           {attendance === "attending" && (
-            <Field data-invalid={!!errors.partySize}>
-              <FieldLabel htmlFor="host-rsvp-party-size">Party size</FieldLabel>
-              <Select
-                name="partySize"
-                items={partySizes}
-                value={partySize}
-                onValueChange={(value) => {
-                  setPartySize(value ?? "1")
-                  correct("partySize")
-                }}
-              >
-                <SelectTrigger
-                  id="host-rsvp-party-size"
-                  className="w-full"
-                  aria-invalid={!!errors.partySize}
-                  aria-describedby={
-                    errors.partySize
-                      ? "host-rsvp-party-size-error"
-                      : "host-rsvp-party-size-description"
-                  }
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {partySizes.map((size) => (
-                    <SelectItem key={size.value} value={size.value}>
-                      {size.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.partySize ? (
-                <FieldError id="host-rsvp-party-size-error">
-                  {errors.partySize}
-                </FieldError>
-              ) : (
-                <FieldDescription id="host-rsvp-party-size-description">
-                  Including the guest.
-                </FieldDescription>
-              )}
-            </Field>
-          )}
-          {attendance === "attending" && (
             <Field data-invalid={!!errors.soupName}>
               <FieldLabel htmlFor="host-rsvp-soup-name">Soup</FieldLabel>
               <Input
@@ -297,76 +259,6 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
               )}
             </Field>
           )}
-          {/* A soup needs a name before it can be categorized or described. */}
-          {attendance === "attending" && soupName.trim() !== "" && (
-            <>
-              <Field data-invalid={!!errors.soupCategory}>
-                <FieldLabel htmlFor="host-rsvp-soup-category">Soup category</FieldLabel>
-                <Select
-                  name="soupCategory"
-                  items={SOUP_CATEGORIES}
-                  value={soupCategory}
-                  onValueChange={(value) => {
-                    setSoupCategory(value)
-                    correct("soupCategory")
-                  }}
-                >
-                  <SelectTrigger
-                    id="host-rsvp-soup-category"
-                    className="w-full"
-                    aria-invalid={!!errors.soupCategory}
-                    aria-describedby={
-                      errors.soupCategory ? "host-rsvp-soup-category-error" : undefined
-                    }
-                  >
-                    <SelectValue placeholder="Choose a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SOUP_CATEGORIES.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.soupCategory && (
-                  <FieldError id="host-rsvp-soup-category-error">
-                    {errors.soupCategory}
-                  </FieldError>
-                )}
-              </Field>
-              <Field data-invalid={!!errors.soupDescription}>
-                <FieldLabel htmlFor="host-rsvp-soup-description">
-                  Soup description
-                </FieldLabel>
-                <Textarea
-                  id="host-rsvp-soup-description"
-                  name="soupDescription"
-                  maxLength={SOUP_DESCRIPTION_MAX_LENGTH}
-                  value={soupDescription}
-                  onChange={(event) => {
-                    setSoupDescription(event.target.value)
-                    correct("soupDescription")
-                  }}
-                  aria-invalid={!!errors.soupDescription}
-                  aria-describedby={
-                    errors.soupDescription
-                      ? "host-rsvp-soup-description-error"
-                      : "host-rsvp-soup-description-description"
-                  }
-                />
-                {errors.soupDescription ? (
-                  <FieldError id="host-rsvp-soup-description-error">
-                    {errors.soupDescription}
-                  </FieldError>
-                ) : (
-                  <FieldDescription id="host-rsvp-soup-description-description">
-                    Optional.
-                  </FieldDescription>
-                )}
-              </Field>
-            </>
-          )}
           {saved.status === "failed" && (
             <Alert variant="destructive">
               <AlertTitle>The changes could not be saved.</AlertTitle>
@@ -389,7 +281,7 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
             <input type="hidden" name="rsvpId" value={id} />
             <input type="hidden" name="confirmRemove" value="yes" />
             <p className="font-medium [overflow-wrap:anywhere]">
-              Remove {initial.attendeeName}&rsquo;s response?
+              Remove {guestNames(initial)}&rsquo;s response?
             </p>
             <p className="text-sm text-muted-foreground">
               {initial.soup

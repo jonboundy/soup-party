@@ -25,12 +25,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 const original = {
-  attendeeName: "Ada Lovelace", status: "ATTENDING" as const, partySize: 2,
-  soup: { name: "Minestrone", category: "VEGETABLE" as const, description: "Beans." },
+  attendeeName: "Ada Lovelace", secondName: "Charles Babbage", status: "ATTENDING" as const,
+  soup: { name: "Minestrone" },
 };
 const fields = {
-  name: "Ada Lovelace", attendance: "attending", partySize: "2",
-  soupName: "Minestrone", soupCategory: "VEGETABLE", soupDescription: "Beans.",
+  name: "Ada Lovelace", secondName: "Charles Babbage", attendance: "attending", soupName: "Minestrone",
 };
 function form(values: Record<string, string>) {
   const data = new FormData();
@@ -87,17 +86,18 @@ describe("host corrections", () => {
     const before = await db.rsvp.findUniqueOrThrow({ where: { id } });
 
     await expect(save(id, {
-      name: " Ada Byron ", partySize: "4", soupName: " Tomato Basil Soup ",
-      soupCategory: "BROTH", soupDescription: "Fresh basil.",
+      name: " Ada Byron ", secondName: " William King ", soupName: " Tomato Basil Soup ",
     })).rejects.toThrow(done);
 
     expect(updateTag).toHaveBeenCalledWith("soups");
     expect(await readPublicSoups()).toEqual([
-      { name: "Tomato Basil Soup", category: "BROTH", description: "Fresh basil.", contributorName: "Ada" },
+      { name: "Tomato Basil Soup", contributorName: "Ada and William" },
     ]);
     const overview = await getHostOverview();
-    expect(overview.counts).toMatchObject({ guests: 6, soups: 1 });
-    expect(overview.attending[0]).toMatchObject({ attendeeName: "Ada Byron", partySize: 4 });
+    expect(overview.counts).toMatchObject({ guests: 4, soups: 1 });
+    expect(overview.attending[0]).toMatchObject({
+      attendeeName: "Ada Byron", secondName: "William King", partySize: 2,
+    });
     expect((await stored(id))!.soup).toMatchObject({ normalizedName: "tomato basil" });
     // Only the named RSVP changes.
     expect(await stored(otherId)).toEqual(other);
@@ -112,7 +112,7 @@ describe("host corrections", () => {
   it("add a soup for an undecided guest and remove one by clearing its name", async () => {
     const { id } = await createRsvp({ ...original, soup: null });
     await expect(save(id)).rejects.toThrow(done);
-    expect(await readPublicSoups()).toMatchObject([{ name: "Minestrone", contributorName: "Ada" }]);
+    expect(await readPublicSoups()).toMatchObject([{ name: "Minestrone", contributorName: "Ada and Charles" }]);
 
     await expect(save(id, { soupName: " " })).rejects.toThrow(done);
     expect(await readPublicSoups()).toEqual([]);
@@ -126,18 +126,18 @@ describe("host corrections", () => {
     expect(await stored(id)).toMatchObject({ status: "DECLINED", partySize: null, soup: { name: "Minestrone" } });
     expect(await readPublicSoups()).toEqual([]);
 
-    await expect(save(id, { partySize: "3" })).rejects.toThrow(done);
-    expect(await stored(id)).toMatchObject({ status: "ATTENDING", partySize: 3 });
+    await expect(save(id, { secondName: "" })).rejects.toThrow(done);
+    expect(await stored(id)).toMatchObject({ status: "ATTENDING", secondName: null, partySize: 1 });
     expect(await readPublicSoups()).toHaveLength(1);
   });
 
   it("are validated as a guest's answers are, and save nothing when invalid", async () => {
     const { id } = await createRsvp(original);
     const before = await stored(id);
-    expect(await save(id, { name: " ", partySize: "11", soupCategory: "GRUEL" })).toEqual({
+    expect(await save(id, { name: " ", secondName: "a".repeat(81), soupName: "a".repeat(81) })).toEqual({
       status: "invalid",
       errors: {
-        name: expect.any(String), partySize: expect.any(String), soupCategory: expect.any(String),
+        name: expect.any(String), secondName: expect.any(String), soupName: expect.any(String),
       },
     });
     const repeated = form({ ...fields, rsvpId: id });
@@ -176,7 +176,7 @@ describe("host removal", () => {
   it("deletes the RSVP and its soup, and nothing else", async () => {
     const { id, editToken } = await createRsvp(original);
     const { id: otherId } = await createRsvp({
-      ...original, attendeeName: "Grace Hopper", soup: { ...original.soup, name: "Borscht" },
+      ...original, attendeeName: "Grace Hopper", secondName: null, soup: { name: "Borscht" },
     });
 
     await expect(remove(id)).rejects.toThrow(done);
@@ -185,7 +185,7 @@ describe("host removal", () => {
     expect(await stored(id)).toBeNull();
     expect(await db.soup.count({ where: { rsvpId: id } })).toBe(0);
     expect(await readPublicSoups()).toMatchObject([{ name: "Borscht", contributorName: "Grace" }]);
-    expect((await getHostOverview()).counts).toEqual({ guests: 2, attending: 1, declined: 0, soups: 1, undecided: 0 });
+    expect((await getHostOverview()).counts).toEqual({ guests: 1, attending: 1, declined: 0, soups: 1, undecided: 0 });
     expect(await stored(otherId)).not.toBeNull();
     // The removed guest's private link opens nothing.
     expect(await getEditableRsvp(editToken)).toBeNull();

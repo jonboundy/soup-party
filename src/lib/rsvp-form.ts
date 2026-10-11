@@ -4,18 +4,10 @@
 import type { SoupMatch } from "@/lib/soup-matches";
 
 export const NAME_MAX_LENGTH = 80;
-export const MAX_PARTY_SIZE = 10;
 export const SOUP_NAME_MAX_LENGTH = 80;
-export const SOUP_DESCRIPTION_MAX_LENGTH = 280;
 
 /** The form's field names, as submitted. */
-export type RsvpField =
-  | "name"
-  | "attendance"
-  | "partySize"
-  | "soupName"
-  | "soupCategory"
-  | "soupDescription";
+export type RsvpField = "name" | "secondName" | "attendance" | "soupName";
 
 /** One message per field that needs correcting. */
 export type RsvpErrors = Partial<Record<RsvpField, string>>;
@@ -32,20 +24,26 @@ export type RsvpFormState =
   | { status: "conflict" }
   | { status: "unauthorized" }
   /** Saved. `soup` is the soup registered, or null if that is undecided. */
-  | { status: "attending"; name: string; partySize: number; soup: GuestSoup | null; editPath: string }
+  | { status: "attending"; name: string; secondName: string | null; soup: GuestSoup | null; editPath: string }
   /**
    * Saved, and not attending. `unlistedSoup` names a soup the response still
    * holds, which the registry no longer shows.
    */
-  | { status: "declined" | "cancelled"; name: string; unlistedSoup: string | null; editPath: string };
+  | {
+      status: "declined" | "cancelled";
+      name: string;
+      secondName: string | null;
+      unlistedSoup: string | null;
+      editPath: string;
+    };
 
 /** A soup as the guest bringing it entered it. */
-export type GuestSoup = { name: string; category: string; description: string | null };
+export type GuestSoup = { name: string };
 
 /** Fields available only after the guest's private token has been verified. */
 export type EditableRsvp = {
   attendeeName: string;
+  secondName: string | null;
   status: "ATTENDING" | "DECLINED";
-  partySize: number | null;
   soup: GuestSoup | null;
 };

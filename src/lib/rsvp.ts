@@ -12,9 +12,13 @@ export class SubmissionConflict extends Error {
 
 function submissionHash(input: RsvpInput) {
   return createHash("sha256").update(JSON.stringify([
-    input.attendeeName, input.status, input.partySize,
-    input.soup ? [input.soup.name, input.soup.category, input.soup.description] : null,
+    input.attendeeName, input.secondName, input.status, input.soup?.name ?? null,
   ])).digest("hex");
+}
+
+/** The guests named, while attending. A declined RSVP has no party. */
+function partySize({ status, secondName }: RsvpInput) {
+  return status === "ATTENDING" ? (secondName ? 2 : 1) : null;
 }
 
 /** A retry never changes a saved RSVP, even if it has since been edited. */
@@ -31,7 +35,7 @@ export async function findSubmittedRsvp(token: string, input: RsvpInput) {
 
 /** Stores RSVP and soup atomically; duplicate tokens recover the original result. */
 export async function createRsvp(input: RsvpInput, submissionToken?: string) {
-  const { attendeeName, status, partySize, soup } = input;
+  const { attendeeName, secondName, status, soup } = input;
   const token = submissionToken ?? createEditToken().token;
   if (!isEditToken(token)) throw new SubmissionConflict();
   const hash = hashEditToken(token);
@@ -40,8 +44,9 @@ export async function createRsvp(input: RsvpInput, submissionToken?: string) {
     const { id } = await db.rsvp.create({
       data: {
         attendeeName,
+        secondName,
         status,
-        partySize,
+        partySize: partySize(input),
         editTokenHash: hash,
         submissionHash: submissionHash(input),
         // Created in the same transaction: a soup that cannot be saved leaves
@@ -71,9 +76,9 @@ export async function getEditableRsvp(token: unknown) {
     where: { editTokenHash: hashEditToken(token) },
     select: {
       attendeeName: true,
+      secondName: true,
       status: true,
-      partySize: true,
-      soup: { select: { name: true, category: true, description: true } },
+      soup: { select: { name: true } },
     },
   });
 }
@@ -93,7 +98,12 @@ export async function writeRsvp(where: { editTokenHash: string } | { id: string 
   return db.$transaction(async (tx) => {
     const rsvp = await tx.rsvp.updateMany({
       where,
-      data: { attendeeName: input.attendeeName, status: input.status, partySize: input.partySize },
+      data: {
+        attendeeName: input.attendeeName,
+        secondName: input.secondName,
+        status: input.status,
+        partySize: partySize(input),
+      },
     });
     if (rsvp.count !== 1) return false;
     const { id } = await tx.rsvp.findUniqueOrThrow({ where, select: { id: true } });

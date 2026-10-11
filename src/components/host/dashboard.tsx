@@ -2,12 +2,8 @@ import * as React from "react"
 import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
+import { guestNames } from "@/lib/guest-names"
 import { getHostOverview, type HostRsvp } from "@/lib/host-rsvps"
-import { SOUP_CATEGORIES } from "@/lib/soup-categories"
-
-function categoryLabel(category: string) {
-  return SOUP_CATEGORIES.find(({ value }) => value === category)?.label
-}
 
 function people(count: number | null) {
   return count === 1 ? "1 person" : `${count} people`
@@ -96,23 +92,11 @@ function EditLink({ rsvp }: { rsvp: HostRsvp }) {
   return (
     <Link
       href={`/host/rsvps/${rsvp.id}`}
-      aria-label={`Edit ${rsvp.attendeeName}’s response`}
+      aria-label={`Edit ${guestNames(rsvp)}’s response`}
       className="mt-2 inline-block text-sm underline underline-offset-4"
     >
       Edit
     </Link>
-  )
-}
-
-function Soup({ soup }: { soup: NonNullable<HostRsvp["soup"]> }) {
-  return (
-    <>
-      <p className="font-medium">{soup.name}</p>
-      <p className="text-sm text-muted-foreground">{categoryLabel(soup.category)}</p>
-      {soup.description && (
-        <p className="mt-2 text-sm whitespace-pre-line">{soup.description}</p>
-      )}
-    </>
   )
 }
 
@@ -165,14 +149,14 @@ async function HostDashboard() {
         {attending.map((rsvp) => (
           <Row key={rsvp.id}>
             <div>
-              <h3 className="font-medium">{rsvp.attendeeName}</h3>
+              <h3 className="font-medium">{guestNames(rsvp)}</h3>
               <p className="text-muted-foreground">{people(rsvp.partySize)}</p>
               <Times rsvp={rsvp} format={format} />
               <EditLink rsvp={rsvp} />
             </div>
             <div>
               {rsvp.soup ? (
-                <Soup soup={rsvp.soup} />
+                <p className="font-medium">{rsvp.soup.name}</p>
               ) : (
                 <p className="text-muted-foreground">Soup to be decided.</p>
               )}
@@ -184,11 +168,8 @@ async function HostDashboard() {
       <Group id="host-soups" title="Soups." count={counts.soups} empty="No soups yet.">
         {soups.map((soup, index) => (
           <Row key={index}>
-            <div>
-              <h3 className="font-medium">{soup.name}</h3>
-              <p className="text-sm text-muted-foreground">{categoryLabel(soup.category)}</p>
-            </div>
-            <p className="text-muted-foreground">Brought by {soup.attendeeName}</p>
+            <h3 className="font-medium">{soup.name}</h3>
+            <p className="text-muted-foreground">Brought by {soup.guests}</p>
           </Row>
         ))}
       </Group>
@@ -201,7 +182,7 @@ async function HostDashboard() {
       >
         {undecided.map((rsvp) => (
           <Row key={rsvp.id}>
-            <h3 className="font-medium">{rsvp.attendeeName}</h3>
+            <h3 className="font-medium">{guestNames(rsvp)}</h3>
             <p className="text-muted-foreground">{people(rsvp.partySize)}</p>
           </Row>
         ))}
@@ -211,13 +192,13 @@ async function HostDashboard() {
         {declined.map((rsvp) => (
           <Row key={rsvp.id}>
             <div>
-              <h3 className="font-medium">{rsvp.attendeeName}</h3>
+              <h3 className="font-medium">{guestNames(rsvp)}</h3>
               <Times rsvp={rsvp} format={format} />
               <EditLink rsvp={rsvp} />
             </div>
             {rsvp.soup && (
               <div>
-                <Soup soup={rsvp.soup} />
+                <p className="font-medium">{rsvp.soup.name}</p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Not listed. Kept in case their plans change.
                 </p>

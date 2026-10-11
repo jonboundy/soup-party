@@ -2,6 +2,8 @@ import "server-only";
 
 import { cacheLife, cacheTag } from "next/cache";
 
+import { publicGuestNames } from "@/lib/guest-names";
+
 /** Only deliberate public fields leave this function. */
 export async function getPublicSoups() {
   "use cache";
@@ -27,14 +29,9 @@ export async function readPublicSoups(excludeEditTokenHash?: string) {
     orderBy: [{ name: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     select: {
       name: true,
-      category: true,
-      description: true,
-      rsvp: { select: { attendeeName: true } },
+      rsvp: { select: { attendeeName: true, secondName: true } },
     },
   });
 
-  return soups.map(({ rsvp, ...soup }) => ({
-    ...soup,
-    contributorName: rsvp.attendeeName.trim().split(/\s+/u)[0],
-  }));
+  return soups.map(({ rsvp, ...soup }) => ({ ...soup, contributorName: publicGuestNames(rsvp) }));
 }

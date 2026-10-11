@@ -5,7 +5,6 @@ import Link from "next/link"
 
 import { PrivateEditLink } from "@/components/private-edit-link"
 import type { RsvpFormState } from "@/lib/rsvp-form"
-import { SOUP_CATEGORIES } from "@/lib/soup-categories"
 
 function Entry({ term, children }: { term: string; children: React.ReactNode }) {
   return (
@@ -59,38 +58,24 @@ function RsvpConfirmation({
         )}
       </div>
       <dl className="border-t">
-        <Entry term="Name">{state.name}</Entry>
+        <Entry term={state.secondName ? "Names" : "Name"}>
+          <p>{state.name}</p>
+          {state.secondName && <p>{state.secondName}</p>}
+        </Entry>
         <Entry term="Response">
           {state.status === "attending" ? "Attending" : "Not attending"}
         </Entry>
         {state.status === "attending" ? (
-          <>
-            <Entry term="Party">
-              {state.partySize === 1 ? "1 person" : `${state.partySize} people`}
-            </Entry>
-            <Entry term="Soup">
-              {state.soup ? (
-                <>
-                  <p>{state.soup.name}</p>
-                  <Note>
-                    {
-                      SOUP_CATEGORIES.find(
-                        ({ value }) => value === state.soup?.category
-                      )?.label
-                    }
-                  </Note>
-                  {state.soup.description && (
-                    <Note>{state.soup.description}</Note>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p>To be decided.</p>
-                  <Note>Add it at any time with your private edit link.</Note>
-                </>
-              )}
-            </Entry>
-          </>
+          <Entry term="Soup">
+            {state.soup ? (
+              <p>{state.soup.name}</p>
+            ) : (
+              <>
+                <p>To be decided.</p>
+                <Note>Add it at any time with your private edit link.</Note>
+              </>
+            )}
+          </Entry>
         ) : (
           state.unlistedSoup && (
             <Entry term="Soup">

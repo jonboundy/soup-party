@@ -6,21 +6,19 @@ import { clearRsvps } from "./database";
 
 let tokenCount = 0;
 
-function attending(overrides: { attendeeName?: string; partySize?: number | null } = {}) {
+function attending(
+  overrides: { attendeeName?: string; secondName?: string; partySize?: number | null } = {},
+) {
   return {
     attendeeName: "Ada Lovelace",
     status: "ATTENDING" as const,
-    partySize: 2,
+    partySize: 1,
     editTokenHash: `test-hash-${++tokenCount}`,
     ...overrides,
   };
 }
 
-const minestrone = {
-  name: "Minestrone",
-  normalizedName: "minestrone",
-  category: "VEGETABLE" as const,
-};
+const minestrone = { name: "Minestrone", normalizedName: "minestrone" };
 
 beforeEach(async () => {
   await clearRsvps();
@@ -94,21 +92,34 @@ describe("Rsvp", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     const updated = await db.rsvp.update({
       where: { id: created.id },
-      data: { partySize: 3 },
+      data: { attendeeName: "Ada King" },
     });
 
-    expect(updated.partySize).toBe(3);
+    expect(updated.attendeeName).toBe("Ada King");
     expect(updated.createdAt).toEqual(created.createdAt);
     expect(updated.updatedAt.getTime()).toBeGreaterThan(created.updatedAt.getTime());
   });
 
-  it("requires a party of at least one when attending", async () => {
-    await expect(db.rsvp.create({ data: attending({ partySize: null }) })).rejects.toThrow(
-      "rsvps_party_size_check",
-    );
-    await expect(db.rsvp.create({ data: attending({ partySize: 0 }) })).rejects.toThrow(
-      "rsvps_party_size_check",
-    );
+  it("has a party of the guests named when attending", async () => {
+    const secondName = "Charles Babbage";
+    for (const data of [
+      attending({ partySize: null }),
+      attending({ partySize: 0 }),
+      attending({ partySize: 2 }),
+      attending({ secondName, partySize: 1 }),
+      attending({ secondName, partySize: 3 }),
+    ]) {
+      await expect(db.rsvp.create({ data })).rejects.toThrow("rsvps_party_size_check");
+    }
+
+    const couple = await db.rsvp.create({ data: attending({ secondName, partySize: 2 }) });
+    expect(couple).toMatchObject({ secondName, partySize: 2 });
+  });
+
+  it("rejects a blank second name", async () => {
+    await expect(
+      db.rsvp.create({ data: attending({ secondName: " ", partySize: 2 }) }),
+    ).rejects.toThrow("rsvps_second_name_check");
   });
 
   it("has no party size when declined", async () => {
@@ -143,11 +154,11 @@ describe("Soup", () => {
 
   it("belongs to one RSVP and is reachable from either side", async () => {
     const rsvp = await db.rsvp.create({
-      data: { ...attending(), soup: { create: { ...minestrone, description: "No pasta." } } },
+      data: { ...attending(), soup: { create: minestrone } },
       include: { soup: true },
     });
 
-    expect(rsvp.soup).toMatchObject({ ...minestrone, description: "No pasta.", rsvpId: rsvp.id });
+    expect(rsvp.soup).toMatchObject({ ...minestrone, rsvpId: rsvp.id });
 
     const soups = await db.soup.findMany({
       where: { rsvp: { status: "ATTENDING" } },
@@ -162,7 +173,7 @@ describe("Soup", () => {
 
     await expect(
       db.soup.create({
-        data: { rsvpId: rsvp.id, name: "Gazpacho", normalizedName: "gazpacho", category: "CHILLED" },
+        data: { rsvpId: rsvp.id, name: "Gazpacho", normalizedName: "gazpacho" },
       }),
     ).rejects.toThrow("soups_rsvp_id_key");
   });
