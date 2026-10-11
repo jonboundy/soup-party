@@ -74,13 +74,13 @@ function Confirmation({
           ? "You’re on the list."
           : "Your regrets have been recorded."}
       </h3>
-      <p className="type-lead text-muted-foreground">
+      <p className="type-lead text-muted-foreground [overflow-wrap:anywhere]">
         {state.status === "attending"
           ? `${state.name}, party of ${state.partySize}.`
           : `${state.name}, not attending.`}
       </p>
       {state.status === "attending" && (
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground [overflow-wrap:anywhere]">
           {state.soup ? (
             <>
               Your soup has been registered:{" "}
@@ -175,7 +175,7 @@ function RsvpForm() {
             <FieldError id="rsvp-name-error">{errors.name}</FieldError>
           ) : (
             <FieldDescription id="rsvp-name-description">
-              As it should appear beside your soup.
+              Only your first name will appear beside your soup.
             </FieldDescription>
           )}
         </Field>

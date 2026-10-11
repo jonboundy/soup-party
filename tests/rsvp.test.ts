@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { refresh, updateTag } from "next/cache";
 
 import { submitRsvp } from "@/app/actions";
 import { db } from "@/lib/db";
@@ -6,6 +7,8 @@ import { hashEditToken } from "@/lib/edit-token";
 import { createRsvp } from "@/lib/rsvp";
 
 import { clearRsvps } from "./database";
+
+vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
 
 const ada = { name: "Ada Lovelace", attendance: "attending", partySize: "2" };
 
@@ -31,7 +34,10 @@ async function headcount() {
   return _sum.partySize ?? 0;
 }
 
-beforeEach(clearRsvps);
+beforeEach(async () => {
+  vi.clearAllMocks();
+  await clearRsvps();
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -46,6 +52,8 @@ describe("submitRsvp", () => {
     const result = await submit({ name: " Ada Lovelace ", attendance: "attending", partySize: "3" });
 
     expect(result).toEqual({ status: "attending", name: "Ada Lovelace", partySize: 3, soup: null });
+    expect(updateTag).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
     expect(await db.rsvp.findMany()).toMatchObject([
       { attendeeName: "Ada Lovelace", status: "ATTENDING", partySize: 3 },
     ]);
@@ -61,6 +69,8 @@ describe("submitRsvp", () => {
       soup: "Minestrone Soup",
     });
     const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
+    expect(updateTag).toHaveBeenCalledExactlyOnceWith("soups");
+    expect(refresh).toHaveBeenCalledOnce();
     expect(rsvp).toMatchObject({ attendeeName: "Ada Lovelace", status: "ATTENDING" });
     expect(rsvp.soup).toMatchObject({
       rsvpId: rsvp.id,
@@ -99,6 +109,8 @@ describe("submitRsvp", () => {
     expect(result).toEqual({ status: "invalid", errors: { soupCategory: "Choose a category." } });
     expect(await db.rsvp.count()).toBe(0);
     expect(await db.soup.count()).toBe(0);
+    expect(updateTag).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("lets two guests register the same soup", async () => {

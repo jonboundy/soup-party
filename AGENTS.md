@@ -1,3 +1,9 @@
+## Shared project context
+
+At the start of every session, read [docs/agent-context/README.md](docs/agent-context/README.md) and its product vision, scope and tickets, architecture, and open decisions notes before planning or changing the project. Read the linked development observations when relevant. These files preserve the PRD context originally stored in Claude's local memory and are shared by all agents through the repo.
+
+Treat the notes as dated snapshots: the linked Confluence PRD is the product source of truth, Jira has live ticket requirements/status, and the current code, README, and docs/data-model.md describe implemented behavior. Keep repo-local context updated as decisions change.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

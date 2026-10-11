@@ -1,5 +1,7 @@
 "use server";
 
+import { refresh, updateTag } from "next/cache";
+
 import type { RsvpFormState } from "@/lib/rsvp-form";
 import { parseRsvp } from "@/lib/rsvp-schema";
 
@@ -47,6 +49,10 @@ export async function submitRsvp(
   }
 
   const { attendeeName, partySize, soup } = parsed.data;
+  if (soup) {
+    updateTag("soups");
+    refresh();
+  }
   return partySize === null
     ? { status: "declined", name: attendeeName }
     : { status: "attending", name: attendeeName, partySize, soup: soup?.name ?? null };

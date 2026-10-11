@@ -85,6 +85,14 @@ The form on the homepage (`src/components/home/rsvp-form.tsx`) posts to the `sub
 - **Soup names.** `normalizeSoupName` in `src/lib/soup-name.ts` produces the `normalized_name` stored beside each soup, for duplicate detection. Nothing compares them yet.
 - **Edit tokens.** Every RSVP gets a random token (`src/lib/edit-token.ts`) and only its SHA-256 hash is stored. Nothing shows the token to the guest yet.
 
+## Public soup registry
+
+The homepage's “The soups.” section lists active soups alphabetically, with their category, optional description, and contributor's first name. The RSVP form explains that only the first name is public.
+
+`getPublicSoups` in `src/lib/public-soups.ts` selects only approved display fields and filters to attending RSVPs. Private RSVP fields, identifiers, edit tokens, and surnames are excluded from its result. The query uses a cache tagged `soups`, with a 1-second revalidation interval, 5-minute client stale time, and 5-minute expiry; a successful soup registration immediately expires that tag and refreshes the submitting guest's page. Other visits revalidate shortly afterward; an already-open page updates on a new visit or reload. Future edit/cancel and host actions should invalidate the same tag.
+
+The list is included in the initial HTML, with a “Loading…” label on the Soups navigation link while navigation is pending. The registry shows “No soups yet.” when empty (including previews without a database), and reports an unavailable state on database errors.
+
 ## Deployment
 
 The app is the `soup-party` project on Vercel, separate from the project that serves jonboundy.com. Merging to `main` deploys to production at https://soup.jonboundy.com; every other branch gets a preview deployment.
