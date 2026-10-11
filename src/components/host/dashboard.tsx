@@ -1,4 +1,5 @@
 import * as React from "react"
+import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
 import { getHostOverview, type HostRsvp } from "@/lib/host-rsvps"
@@ -91,6 +92,18 @@ function Times({ rsvp, format }: { rsvp: HostRsvp; format: Intl.DateTimeFormat }
   )
 }
 
+function EditLink({ rsvp }: { rsvp: HostRsvp }) {
+  return (
+    <Link
+      href={`/host/rsvps/${rsvp.id}`}
+      aria-label={`Edit ${rsvp.attendeeName}’s response`}
+      className="mt-2 inline-block text-sm underline underline-offset-4"
+    >
+      Edit
+    </Link>
+  )
+}
+
 function Soup({ soup }: { soup: NonNullable<HostRsvp["soup"]> }) {
   return (
     <>
@@ -144,7 +157,7 @@ async function HostDashboard() {
         </dl>
         <p className="text-sm text-muted-foreground">
           Guests expected counts everyone in each party. The other figures count responses.
-          Reload the page for the latest.
+          Reload the page for the latest. Edit a response to correct or remove it.
         </p>
       </section>
 
@@ -155,6 +168,7 @@ async function HostDashboard() {
               <h3 className="font-medium">{rsvp.attendeeName}</h3>
               <p className="text-muted-foreground">{people(rsvp.partySize)}</p>
               <Times rsvp={rsvp} format={format} />
+              <EditLink rsvp={rsvp} />
             </div>
             <div>
               {rsvp.soup ? (
@@ -199,6 +213,7 @@ async function HostDashboard() {
             <div>
               <h3 className="font-medium">{rsvp.attendeeName}</h3>
               <Times rsvp={rsvp} format={format} />
+              <EditLink rsvp={rsvp} />
             </div>
             {rsvp.soup && (
               <div>

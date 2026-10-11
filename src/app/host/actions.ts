@@ -1,8 +1,10 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { updateTag } from "next/cache";
+import { redirect, unstable_rethrow } from "next/navigation";
 
-import type { HostSignInState } from "@/lib/host-form";
+import type { HostRsvpState, HostSignInState } from "@/lib/host-form";
+import { parseRsvp } from "@/lib/rsvp-schema";
 
 /**
  * Starts a host session for the right password. Anyone can post to this, so
@@ -44,4 +46,79 @@ export async function signOutHost() {
     }
   }
   redirect("/host");
+}
+
+/**
+ * Saves the host's correction to a guest's RSVP. Signed-out callers are sent
+ * to the sign-in form before anything submitted is read. The answers pass the
+ * validation a guest's do, but not the duplicate-soup warning or the rate
+ * limit, which are for guests.
+ */
+export async function saveHostRsvp(
+  _previous: HostRsvpState,
+  formData: FormData,
+): Promise<HostRsvpState> {
+  if (!process.env.DATABASE_URL) return { status: "failed" };
+  const { requireHost } = await import("@/lib/host-session");
+  await requireHost();
+  if (!(formData instanceof FormData)) return { status: "failed" };
+
+  const parsed = parseRsvp({
+    name: singleField(formData, "name"),
+    attendance: singleField(formData, "attendance"),
+    partySize: singleField(formData, "partySize"),
+    soupName: singleField(formData, "soupName"),
+    soupCategory: singleField(formData, "soupCategory"),
+    soupDescription: singleField(formData, "soupDescription"),
+  });
+  if (!parsed.success) return { status: "invalid", errors: parsed.errors };
+
+  try {
+    const { updateHostRsvp } = await import("@/lib/host-rsvps");
+    if (!(await updateHostRsvp(formData.get("rsvpId"), parsed.data))) return { status: "missing" };
+  } catch (error) {
+    return failed("corrected", error);
+  }
+  // The correction may add, rename, unlist or relist a public soup.
+  updateTag("soups");
+  redirect("/host");
+}
+
+/**
+ * Deletes a guest's RSVP and soup. The request has to carry the confirmation
+ * the form asks the host for.
+ */
+export async function removeHostRsvp(
+  _previous: HostRsvpState,
+  formData: FormData,
+): Promise<HostRsvpState> {
+  if (!process.env.DATABASE_URL) return { status: "failed" };
+  const { requireHost } = await import("@/lib/host-session");
+  await requireHost();
+  if (!(formData instanceof FormData) || formData.get("confirmRemove") !== "yes") {
+    return { status: "failed" };
+  }
+
+  try {
+    const { removeHostRsvp } = await import("@/lib/host-rsvps");
+    if (!(await removeHostRsvp(formData.get("rsvpId")))) return { status: "missing" };
+  } catch (error) {
+    return failed("removed", error);
+  }
+  updateTag("soups");
+  redirect("/host");
+}
+
+function failed(verb: string, error: unknown): HostRsvpState {
+  // Preserve the redirect for a session that ended mid-request.
+  unstable_rethrow(error);
+  // Database errors may quote guests' details; log only their kind.
+  console.error(`RSVP could not be ${verb}:`, error instanceof Error ? error.name : typeof error);
+  return { status: "failed" };
+}
+
+function singleField(formData: FormData, field: string) {
+  const values = formData.getAll(field);
+  // Repeated fields are ambiguous, so send them to schema validation as invalid.
+  return values.length > 1 ? values : values[0] ?? null;
 }

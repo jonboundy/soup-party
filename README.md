@@ -50,7 +50,7 @@ scripts/               Command-line helpers
 src/
   app/                 Routes, layouts and global styles
   components/home/     Homepage sections, in page order
-  components/host/     The host's sign-in form and RSVP overview
+  components/host/     The host's sign-in form, RSVP overview and correction form
   components/layout/   Page structure: container, section, reveal, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
@@ -98,7 +98,7 @@ Concurrent edits serialize on the RSVP row: the last completed write wins, with 
 
 The homepage's “The soups.” section lists active soups alphabetically, with their category, optional description, and contributor's first name. The RSVP form explains that only the first name is public.
 
-`getPublicSoups` in `src/lib/public-soups.ts` selects only approved display fields and filters to attending RSVPs. Private RSVP fields, identifiers, edit tokens, and surnames are excluded from its result. The query uses a cache tagged `soups`, with a 1-second revalidation interval, 5-minute client stale time, and 5-minute expiry; a successful soup registration immediately expires that tag and refreshes the submitting guest's page. Other visits revalidate shortly afterward; an already-open page updates on a new visit or reload. Guest edit/cancel actions invalidate the same tag; future host actions should too.
+`getPublicSoups` in `src/lib/public-soups.ts` selects only approved display fields and filters to attending RSVPs. Private RSVP fields, identifiers, edit tokens, and surnames are excluded from its result. The query uses a cache tagged `soups`, with a 1-second revalidation interval, 5-minute client stale time, and 5-minute expiry; a successful soup registration immediately expires that tag and refreshes the submitting guest's page. Other visits revalidate shortly afterward; an already-open page updates on a new visit or reload. Guest edit/cancel actions and the host's corrections and removals invalidate the same tag.
 
 The list is included in the initial HTML, with a “Loading…” label on the Soups navigation link while navigation is pending. The registry shows “No soups yet.” when empty (including previews without a database), and reports an unavailable state on database errors.
 
@@ -121,7 +121,16 @@ Signed in, `/host` shows every response (`src/components/host/dashboard.tsx`):
 - **Lists.** Attending RSVPs in the order received, with full name, party size, soup name, category and description; active soups alphabetically with the contributor's full name; attending guests without a soup; and declines, including a soup kept on file by a guest who cancelled, marked as not listed.
 - **Times.** When each response was received and last changed, shown in the event's `time_zone`, or UTC until one is set.
 
-`getHostOverview` in `src/lib/host-rsvps.ts` calls `requireHost()` itself, reads the database on every request with no cache, and derives the figures from the same rows as the lists. It selects no edit-token or submission hashes. The page does not update itself: reloading it shows the latest. Editing and removing entries is SP-22.
+`getHostOverview` in `src/lib/host-rsvps.ts` calls `requireHost()` itself, reads the database on every request with no cache, and derives the figures from the same rows as the lists. It selects no edit-token or submission hashes. The page does not update itself: reloading it shows the latest.
+
+## Host corrections
+
+Each response in the attending and declined lists has an Edit link to `/host/rsvps/<id>` (`src/components/host/rsvp-editor.tsx`), where the host can correct it or remove it.
+
+- **Corrections.** The form starts with the guest's saved answers and can change the name, response, party size and soup. `saveHostRsvp` in `src/app/host/actions.ts` validates them with `parseRsvp`, as a guest's are, and `updateHostRsvp` in `src/lib/host-rsvps.ts` writes them through the same transaction a guest's edit uses, so the same rules hold: clearing the soup name removes the soup, and a decline keeps the soup on file, unlisted. The guest's private link is untouched and keeps working. Duplicate-soup warnings and the RSVP rate limit are for guests and do not apply.
+- **Removal.** “Remove response” asks for confirmation before anything is sent, and `removeHostRsvp` refuses a request that does not carry it. Removal deletes the RSVP row and, by cascade, its soup. Nothing is kept, and the guest's private link stops working. It cannot be undone.
+- **Authorization.** The page, both actions and all three functions in `src/lib/host-rsvps.ts` call `requireHost()` themselves. A signed-out request is redirected to `/host` before any submitted field is read. The RSVP id in the URL identifies a row and authorizes nothing.
+- **Afterwards.** A saved correction or a removal expires the `soups` tag and returns the host to the overview. A response removed in another tab is reported as no longer there, and nothing is changed.
 
 ## Deployment
 
