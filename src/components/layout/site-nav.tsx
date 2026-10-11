@@ -2,6 +2,7 @@ import Link from "next/link"
 import { cn } from "cn"
 
 import { buttonVariants } from "@/components/ui/button"
+import { SoupLinkLabel } from "@/components/layout/soup-link-label"
 
 // The header cannot fit every link beside the wordmark below 360px, so the
 // narrowest screens drop Details, the first section a guest scrolls to anyway.
@@ -22,7 +23,7 @@ function SiteNav() {
             link.className
           )}
         >
-          {link.label}
+          {link.href === "/#soups" ? <SoupLinkLabel /> : link.label}
         </Link>
       ))}
       <Link
