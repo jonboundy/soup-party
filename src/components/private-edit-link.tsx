@@ -4,15 +4,15 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-export function PrivateEditLink({ editPath }: { editPath: string }) {
+export function PrivateEditLink({ editPath, description }: { editPath: string; description: string }) {
   const input = React.useRef<HTMLInputElement>(null)
   const [copied, setCopied] = React.useState(false)
 
   return (
-    <div className="mt-6 flex max-w-md flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <p className="font-medium">Save your private edit link.</p>
       <p id="edit-link-description" className="text-sm text-muted-foreground">
-        Use it to change your RSVP or cancel. Anyone with this link can edit your response.
+        {description}
       </p>
       <Input
         ref={(node) => {

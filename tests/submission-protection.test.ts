@@ -31,7 +31,7 @@ describe("submission protection", () => {
   it("returns the same confirmation and private link for simultaneous clicks and retries", async () => {
     const data = form();
     const results = await Promise.all(Array.from({ length: 8 }, () => submit(data)));
-    expect(results[0]).toMatchObject({ status: "attending", soup: "Minestrone" });
+    expect(results[0]).toMatchObject({ status: "attending", soup: { name: "Minestrone" } });
     for (const result of results) expect(result).toEqual(results[0]);
     expect(await submit(data)).toEqual(results[0]);
     expect(await db.rsvp.count()).toBe(1);

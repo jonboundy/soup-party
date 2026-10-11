@@ -54,10 +54,14 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   const blocked = await checkSubmission(formData);
   if (blocked) return blocked;
 
+  let unlistedSoup: string | null = null;
   if (editToken) {
     try {
       const { getEditableRsvp } = await import("@/lib/rsvp");
-      if (!(await getEditableRsvp(editToken))) return { status: "unauthorized" };
+      const saved = await getEditableRsvp(editToken);
+      if (!saved) return { status: "unauthorized" };
+      // A decline leaves the soup with the RSVP, so it is still there to report.
+      unlistedSoup = saved.soup?.name ?? null;
     } catch {
       return { status: "failed" };
     }
@@ -118,8 +122,8 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   }
   const editPath = `/rsvp/edit?token=${editToken}`;
   return partySize === null
-    ? { status: "declined", name: attendeeName, editPath }
-    : { status: "attending", name: attendeeName, partySize, soup: soup?.name ?? null, editPath };
+    ? { status: "declined", name: attendeeName, unlistedSoup, editPath }
+    : { status: "attending", name: attendeeName, partySize, soup, editPath };
 }
 
 function singleField(formData: FormData, field: string) {
@@ -132,19 +136,27 @@ export async function cancelGuestRsvp(
   _previous: RsvpFormState,
   formData: FormData,
 ): Promise<RsvpFormState> {
-  if (!(formData instanceof FormData) || !isEditToken(formData.get("editToken"))) {
-    return { status: "unauthorized" };
-  }
+  const editToken = formData instanceof FormData ? formData.get("editToken") : null;
+  if (!isEditToken(editToken)) return { status: "unauthorized" };
   if (formData.get("confirmCancel") !== "yes") return { status: "failed" };
   const blocked = await checkSubmission(formData);
   if (blocked) return blocked;
+  let saved;
   try {
-    const { cancelRsvp } = await import("@/lib/rsvp");
-    if (!(await cancelRsvp(formData.get("editToken")))) return { status: "unauthorized" };
+    const { cancelRsvp, getEditableRsvp } = await import("@/lib/rsvp");
+    // Cancellation arrives without the guest's answers, so the confirmation
+    // is read from what was saved.
+    saved = await getEditableRsvp(editToken);
+    if (!saved || !(await cancelRsvp(editToken))) return { status: "unauthorized" };
   } catch {
     return { status: "failed" };
   }
   updateTag("soups");
   refresh();
-  return { status: "cancelled" };
+  return {
+    status: "cancelled",
+    name: saved.attendeeName,
+    unlistedSoup: saved.soup?.name ?? null,
+    editPath: `/rsvp/edit?token=${editToken}`,
+  };
 }

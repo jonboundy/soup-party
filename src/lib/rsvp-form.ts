@@ -31,15 +31,21 @@ export type RsvpFormState =
   | { status: "rate-limited"; retryAfter: number }
   | { status: "conflict" }
   | { status: "unauthorized" }
-  | { status: "cancelled" }
-  /** `soup` is the name of the soup registered, or null if that is undecided. */
-  | { status: "attending"; name: string; partySize: number; soup: string | null; editPath: string }
-  | { status: "declined"; name: string; editPath: string };
+  /** Saved. `soup` is the soup registered, or null if that is undecided. */
+  | { status: "attending"; name: string; partySize: number; soup: GuestSoup | null; editPath: string }
+  /**
+   * Saved, and not attending. `unlistedSoup` names a soup the response still
+   * holds, which the registry no longer shows.
+   */
+  | { status: "declined" | "cancelled"; name: string; unlistedSoup: string | null; editPath: string };
+
+/** A soup as the guest bringing it entered it. */
+export type GuestSoup = { name: string; category: string; description: string | null };
 
 /** Fields available only after the guest's private token has been verified. */
 export type EditableRsvp = {
   attendeeName: string;
   status: "ATTENDING" | "DECLINED";
   partySize: number | null;
-  soup: { name: string; category: string; description: string | null } | null;
+  soup: GuestSoup | null;
 };

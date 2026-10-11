@@ -68,7 +68,7 @@ describe("submitRsvp", () => {
       status: "attending",
       name: "Ada Lovelace",
       partySize: 2,
-      soup: "Minestrone Soup",
+      soup: { name: "Minestrone Soup", category: "VEGETABLE", description: "No pasta." },
       editPath: expect.any(String),
     });
     const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
@@ -101,7 +101,7 @@ describe("submitRsvp", () => {
   it("stores no soup for a declining guest, even if one was sent", async () => {
     const result = await submit({ ...ada, ...minestrone, attendance: "declined" });
 
-    expect(result).toEqual({ status: "declined", name: "Ada Lovelace", editPath: expect.any(String) });
+    expect(result).toEqual({ status: "declined", name: "Ada Lovelace", unlistedSoup: null, editPath: expect.any(String) });
     expect(await db.rsvp.count({ where: { status: "DECLINED" } })).toBe(1);
     expect(await db.soup.count()).toBe(0);
   });
@@ -134,7 +134,7 @@ describe("submitRsvp", () => {
 
     const result = await submit({ ...grace, acknowledgedSoupName: "minestrone!" });
 
-    expect(result).toMatchObject({ status: "attending", name: "Grace Hopper", soup: "minestrone!" });
+    expect(result).toMatchObject({ status: "attending", name: "Grace Hopper", soup: { name: "minestrone!" } });
     expect(await db.soup.count({ where: { normalizedName: "minestrone" } })).toBe(2);
     expect(updateTag).toHaveBeenCalledExactlyOnceWith("soups");
     expect(refresh).toHaveBeenCalledOnce();
@@ -171,7 +171,7 @@ describe("submitRsvp", () => {
     expect(await db.rsvp.count()).toBe(2);
 
     expect(await submit({ ...ada, ...minestrone, soupName: "Potato leek" }))
-      .toMatchObject({ status: "attending", soup: "Potato leek" });
+      .toMatchObject({ status: "attending", soup: { name: "Potato leek" } });
   });
 
   it("ignores declined and removed soups during matching", async () => {
@@ -206,7 +206,7 @@ describe("submitRsvp", () => {
   it("stores a declining guest without a party size", async () => {
     const result = await submit({ name: "Grace Hopper", attendance: "declined", partySize: "4" });
 
-    expect(result).toEqual({ status: "declined", name: "Grace Hopper", editPath: expect.any(String) });
+    expect(result).toEqual({ status: "declined", name: "Grace Hopper", unlistedSoup: null, editPath: expect.any(String) });
     expect(await db.rsvp.findMany()).toMatchObject([
       { attendeeName: "Grace Hopper", status: "DECLINED", partySize: null },
     ]);
@@ -276,6 +276,7 @@ describe("submitRsvp", () => {
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(hashEditToken(token)).toBe(rsvp.editTokenHash);
     expect(Object.keys(result).sort()).toEqual(["editPath", "name", "partySize", "soup", "status"]);
+    expect(Object.keys(result.soup!).sort()).toEqual(["category", "description", "name"]);
   });
 
   it("reports a failure when there is no database", async () => {
