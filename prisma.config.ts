@@ -8,6 +8,8 @@ export default defineConfig({
   },
   datasource: {
     // Read directly so `prisma generate` works where no database is configured.
-    url: process.env.DATABASE_URL ?? "",
+    // Migrations need a direct connection, which the hosted database provides
+    // separately from the pooled one the app uses.
+    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "",
   },
 });

@@ -2,7 +2,7 @@
 
 RSVP website for a soup potluck. Everyone brings soup. Everyone eats soup.
 
-Standalone Next.js app, deployed separately from jonboundy.com at soup.jonboundy.com (planned).
+Standalone Next.js app, deployed separately from jonboundy.com at https://soup.jonboundy.com.
 
 ## Stack
 
@@ -38,6 +38,7 @@ The app runs at http://localhost:3000.
 | `npm run db:migrate` | Apply migrations in development, creating one if the schema changed |
 | `npm run db:deploy` | Apply pending migrations without creating any (production) |
 | `npm run db:studio` | Browse and edit data in Prisma Studio |
+| `npm run vercel-build` | Build on Vercel, applying migrations first in production |
 
 ## Structure
 
@@ -72,6 +73,16 @@ The Prisma client is generated into `src/generated/prisma` on `npm install` and 
 Tables, relations and constraints are documented in [docs/data-model.md](docs/data-model.md).
 
 `npm test` uses a separate database, the one in `DATABASE_URL` with `_test` appended to its name. It is created and migrated automatically, and the tests delete its RSVPs as they go.
+
+## Deployment
+
+The app is the `soup-party` project on Vercel, separate from the project that serves jonboundy.com. Merging to `main` deploys to production at https://soup.jonboundy.com; every other branch gets a preview deployment.
+
+- **Domain.** DNS for jonboundy.com is hosted at Porkbun. `soup` is a CNAME to the target Vercel shows under the project's Domains settings, and Vercel issues the certificate. No other record is involved.
+- **Database.** Production uses a Neon PostgreSQL database (`soup-party-db`), installed through the Vercel Marketplace, which manages its environment variables. The app connects with the pooled `DATABASE_URL`; migrations use the direct `DATABASE_URL_UNPOOLED`.
+- **Migrations.** `vercel.json` builds with `npm run vercel-build`, which runs `prisma migrate deploy` before `next build` on production deployments only, so a failed migration stops the release.
+- **Previews.** The database is connected to the production environment only. Preview deployments have no `DATABASE_URL` and never touch production data.
+- **Secrets.** Environment variables live in Vercel, never in the repository. `vercel env ls` lists them and `vercel env add` adds one.
 
 ## Design system
 
