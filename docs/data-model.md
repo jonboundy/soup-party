@@ -6,6 +6,8 @@ PostgreSQL, accessed through Prisma. The schema is `prisma/schema.prisma`; migra
 events          one row: the event's configuration
 
 rsvps  1 ──── 0..1  soups
+
+host_sessions   the host's sign-ins
 ```
 
 Tables and columns are `snake_case` in the database and mapped to `camelCase` in the Prisma client (`rsvps.attendee_name` is `rsvp.attendeeName`).
@@ -53,6 +55,18 @@ New forms receive their private random token at request time. Its unique hash al
 ### `rsvp_rate_limits` (`RsvpRateLimit`)
 
 Transient, shared abuse-control buckets: `key` (hashed client identity, primary key), `window_start` (timestamptz), and `attempts` (positive integer). A single PostgreSQL upsert increments or resets each 10-minute window atomically. `window_start` is indexed for removal of buckets inactive for more than a day. No raw IP addresses or guest credentials are stored here. See the README for deployment-specific identity and limits.
+
+### `host_sessions` (`HostSession`)
+
+One row per browser the host is signed in on. There is no host or user table: the host's only credential is the password hash in the `HOST_PASSWORD_HASH` environment variable.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `token_hash` | `text` | Primary key. HMAC-SHA-256 of the session token, keyed with the password hash, in hex. |
+| `expires_at` | `timestamptz` | Indexed. Seven days after sign-in. A session past this is ignored. |
+| `created_at` | `timestamptz` | |
+
+The raw token exists only in the host's cookie. Signing out deletes the row. Rows that have expired are deleted at the next sign-in. Because the hash is keyed with the password hash, rows written under a previous password match nothing. See the README for the cookie and the authorization helpers.
 
 ### `soups` (`Soup`)
 

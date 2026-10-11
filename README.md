@@ -38,6 +38,7 @@ The app runs at http://localhost:3000.
 | `npm run db:migrate` | Apply migrations in development, creating one if the schema changed |
 | `npm run db:deploy` | Apply pending migrations without creating any (production) |
 | `npm run db:studio` | Browse and edit data in Prisma Studio |
+| `npm run host:password` | Print the `HOST_PASSWORD_HASH` value for a host password |
 | `npm run vercel-build` | Build on Vercel, applying migrations first in production |
 
 ## Structure
@@ -45,9 +46,11 @@ The app runs at http://localhost:3000.
 ```
 docs/                  Reference documentation
 prisma/                Database schema and migrations
+scripts/               Command-line helpers
 src/
   app/                 Routes, layouts and global styles
   components/home/     Homepage sections, in page order
+  components/host/     The host's sign-in form
   components/layout/   Page structure: container, section, reveal, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
@@ -99,6 +102,17 @@ The homepage's “The soups.” section lists active soups alphabetically, with 
 
 The list is included in the initial HTML, with a “Loading…” label on the Soups navigation link while navigation is pending. The registry shows “No soups yet.” when empty (including previews without a database), and reports an unavailable state on database errors.
 
+## Host sign-in
+
+`/host` is the host's area. Guests have no accounts and nothing links there. Signed out, it shows a password form; signed in, a sign-out button and, for now, a placeholder where the RSVP overview will go.
+
+- **Password.** There is one host and no account table. `npm run host:password` asks for a password of at least 12 characters and prints its scrypt hash, which goes in `HOST_PASSWORD_HASH`. The password itself is stored nowhere. `verifyHostPassword` in `src/lib/host-password.ts` compares in constant time. While the variable is empty or unreadable nobody can sign in, and the form says sign-in is not available.
+- **Sessions.** A correct password creates a 256-bit random token (`src/lib/host-session.ts`). The browser keeps it for seven days in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie named `__Host-soup-host`, or `soup-host` in development, where there is no HTTPS. The `host_sessions` table keeps only an HMAC of the token, keyed with the password hash. Signing out deletes that row, so a copied cookie stops working too. Changing `HOST_PASSWORD_HASH` ends every session. Expired rows are removed at the next sign-in.
+- **Authorization.** `isHostSignedIn()` looks the cookie up in the database on every request, and `requireHost()` redirects anyone else to `/host`. Every host page, server action and data read has to call one of them itself: a check in a layout, or on the page a form is rendered on, does not cover the action behind it. Host actions that change RSVPs should also expire the `soups` tag.
+- **Abuse controls.** Sign-in attempts are counted before the password is looked at: 10 per 10-minute window per client, through the RSVP limiter but with a budget of their own. Without Vercel's trusted header every client shares that budget. Next.js refuses a server action posted from another origin. `/host` is excluded from indexing and sent with `no-store`.
+
+A production build served locally with `npm run start` sets the `Secure` cookie over HTTP. Chrome and Firefox accept that on `localhost`; Safari does not, so sign in with `npm run dev` there.
+
 ## Deployment
 
 The app is the `soup-party` project on Vercel, separate from the project that serves jonboundy.com. Merging to `main` deploys to production at https://soup.jonboundy.com; every other branch gets a preview deployment.
@@ -106,8 +120,9 @@ The app is the `soup-party` project on Vercel, separate from the project that se
 - **Domain.** DNS for jonboundy.com is hosted at Porkbun. `soup` is a CNAME to the target Vercel shows under the project's Domains settings, and Vercel issues the certificate. No other record is involved.
 - **Database.** Production uses a Neon PostgreSQL database (`soup-party-db`), installed through the Vercel Marketplace, which manages its environment variables. The app connects with the pooled `DATABASE_URL`; migrations use the direct `DATABASE_URL_UNPOOLED`.
 - **Migrations.** `vercel.json` builds with `npm run vercel-build`, which runs `prisma migrate deploy` before `next build` on production deployments only, so a failed migration stops the release.
-- **Previews.** The database is connected to the production environment only. Preview deployments have no `DATABASE_URL` and never touch production data.
+- **Previews.** The database is connected to the production environment only. Preview deployments have no `DATABASE_URL` and never touch production data. Host sign-in is not available on them.
 - **Secrets.** Environment variables live in Vercel, never in the repository. `vercel env ls` lists them and `vercel env add` adds one.
+- **Host password.** Run `npm run host:password`, add its output with `vercel env add HOST_PASSWORD_HASH production`, and redeploy. To change the password, replace the value the same way; this signs the host out everywhere.
 
 ## Design system
 
