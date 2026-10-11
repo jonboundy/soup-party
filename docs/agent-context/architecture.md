@@ -38,6 +38,10 @@ Implemented during SP-21 (2026-10-11): signed in, `/host` shows the RSVP overvie
 
 Implemented during SP-22 (2026-10-11): each response links to `/host/rsvps/<id>`, where the host corrects or removes it. Corrections reuse guest validation (`parseRsvp`) and the guest edit transaction (`writeRsvp` in `src/lib/rsvp.ts`), so a decline still retains the soup unlisted and the guest's edit link is unchanged; duplicate warnings and rate limits do not apply to the host. Removal hard-deletes the RSVP and its soup after an on-page confirmation that the action also requires, and kills the guest's link. `saveHostRsvp` / `removeHostRsvp` call `requireHost()` before reading any field, expire the `soups` tag and redirect to `/host`. The editor is keyed on the saved answers because Next.js can restore a previously visited page's form state.
 
+## Interactive soup (v1.1)
+
+Implemented during SP-23 (2026-10-11): the hero has a top-down bowl of alphabet soup (`src/components/home/alphabet-soup.tsx`), server-rendered as SVG with real text letters and named as one image. `src/lib/alphabet-soup.ts` is a DOM-free fluid simulation: stirring with a cursor (hover, no button) or a touch drag moves the broth, which carries and turns the letters. Touch uses `touch-action: pan-y`, so vertical swipes still scroll the page. The animation loop runs only while the bowl is on screen and unsettled; it turns slightly when first seen, then requests no frames until stirred. Reduced motion and no-JavaScript show the served arrangement, static. The letter set already includes a spare set of the letters in SOUP PARTY, for SP-24. Not done here: hidden messages (SP-24), the stir counter (SP-26), keyboard stirring (SP-27). No new dependencies. See the README's “Alphabet soup” section.
+
 ## Duplicate soup handling
 - Normalize whitespace, casing, punctuation, and common trailing "soup" wording.
 - Compare exact normalized names and obvious naming variants, with an extensible similarity heuristic for near matches.
