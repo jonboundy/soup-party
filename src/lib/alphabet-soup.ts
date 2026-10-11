@@ -75,7 +75,7 @@ export type Soup = {
 
 // Small seeded generator (mulberry32). Integer arithmetic only, so the server
 // and every browser lay the letters out identically.
-function random(seed: number) {
+export function random(seed: number) {
   return () => {
     seed = (seed + 0x6d2b79f5) | 0;
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);

@@ -115,6 +115,17 @@ The hero's bowl (`src/components/home/alphabet-soup.tsx`) is tomato alphabet sou
 
 The bowl sits beside the hero text from the `lg` breakpoint and below the call to action on smaller screens. Its colours are the `--soup-*` tokens in `src/app/globals.css`.
 
+## Soup cascade
+
+Behind the home page, small steaming bowls of soup fall slowly past (`src/components/home/soup-cascade.tsx`). The other pages do not have it.
+
+- **Bowls.** Line drawings seen from the side, each with one of six soups in it: tomato, pea, squash, chowder, borscht and chicken. Their colours are the `--soup-*` tokens.
+- **Motion.** Each bowl falls from just above the window to just below it, wandering a little sideways and rocking a few degrees either way, then starts again. There are three depths: nearer bowls are larger, less faint and faster, taking about 40 seconds to cross the window against about 75 for the furthest. The layer is fixed to the window, so the fall is the same wherever the page is scrolled, and it fades out towards the top and bottom edges.
+- **Cost.** A server component and two CSS animations (`soup-cascade` and `soup-cascade-rock` in `src/app/globals.css`), with no script. Only `translate` and `rotate` change, so nothing is laid out or painted again while it runs.
+- **Layout.** `layoutSoupCascade` in `src/lib/soup-cascade.ts` gives 15 bowls their column, speed and soup from a seed. Positions come from a low-discrepancy sequence, so any first few are evenly spread; below the `sm` breakpoint only the first 7 are shown, slightly smaller.
+- **Without motion.** A bowl's own position is where it is when the page loads, and the animation starts from there. With `prefers-reduced-motion` both animations are off and the bowls stay scattered, upright and still.
+- **Out of the way.** The layer is `aria-hidden`, takes no pointer events and sits under all content, so bowls pass behind text and behind the RSVP form's fields. It is removed for `prefers-contrast: more`, forced colours and print.
+
 ## Host sign-in
 
 `/host` is the host's area. Guests have no accounts and nothing links there. Signed out, it shows a password form; signed in, the RSVP overview and a sign-out button.
