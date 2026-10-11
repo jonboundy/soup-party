@@ -35,6 +35,7 @@ function tidy(value: string) {
 
 const name = z
   .string("Enter your name.")
+  .refine((value) => !value.includes("\0"), "Enter your name without control characters.")
   .transform(tidy)
   .pipe(
     z
@@ -60,6 +61,7 @@ const partySize = z
 // Both may be blank: a blank name means no soup yet, a blank description none.
 const soupName = z
   .string("Enter the name of the soup.")
+  .refine((value) => !value.includes("\0"), "Enter the soup name without control characters.")
   .transform(tidy)
   .pipe(z.string().max(SOUP_NAME_MAX_LENGTH, `Use ${SOUP_NAME_MAX_LENGTH} characters or fewer.`));
 
@@ -70,6 +72,7 @@ const soupCategory = z.enum(
 
 const soupDescription = z
   .string("Describe the soup in words.")
+  .refine((value) => !value.includes("\0"), "Describe the soup without control characters.")
   .transform(tidy)
   .pipe(
     z

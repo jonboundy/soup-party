@@ -8,6 +8,23 @@ import type { RsvpFormState } from "@/lib/rsvp-form";
 import { parseRsvp } from "@/lib/rsvp-schema";
 import { findSoupMatches } from "@/lib/soup-matches";
 
+async function checkSubmission(formData: FormData): Promise<RsvpFormState | null> {
+  if (!process.env.DATABASE_URL) return { status: "failed" };
+  try {
+    const { checkRsvpRateLimit } = await import("@/lib/rsvp-rate-limit");
+    const retryAfter = await checkRsvpRateLimit();
+    if (retryAfter) return { status: "rate-limited", retryAfter };
+  } catch {
+    return { status: "failed" };
+  }
+  // A quiet honeypot, excluded from keyboard navigation and autofill.
+  if (formData.getAll("website").some((value) => value !== "")) return { status: "failed" };
+  for (const field of ["submissionToken", "editToken", "acknowledgedSoupName", "confirmCancel"]) {
+    if (formData.getAll(field).length > 1) return { status: "failed" };
+  }
+  return null;
+}
+
 /**
  * Records a guest's response. Anyone can post to this, with anything, so only
  * the expected fields are read and nothing is stored unvalidated.
@@ -34,9 +51,10 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   if (!(formData instanceof FormData)) {
     return { status: "failed" };
   }
+  const blocked = await checkSubmission(formData);
+  if (blocked) return blocked;
 
   if (editToken) {
-    if (!process.env.DATABASE_URL) return { status: "failed" };
     try {
       const { getEditableRsvp } = await import("@/lib/rsvp");
       if (!(await getEditableRsvp(editToken))) return { status: "unauthorized" };
@@ -46,43 +64,43 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   }
 
   const parsed = parseRsvp({
-    name: formData.get("name"),
-    attendance: formData.get("attendance"),
-    partySize: formData.get("partySize"),
-    soupName: formData.get("soupName"),
-    soupCategory: formData.get("soupCategory"),
-    soupDescription: formData.get("soupDescription"),
+    name: singleField(formData, "name"),
+    attendance: singleField(formData, "attendance"),
+    partySize: singleField(formData, "partySize"),
+    soupName: singleField(formData, "soupName"),
+    soupCategory: singleField(formData, "soupCategory"),
+    soupDescription: singleField(formData, "soupDescription"),
   });
   if (!parsed.success) {
     return { status: "invalid", errors: parsed.errors };
   }
-
-  // Preview deployments have no database.
-  if (!process.env.DATABASE_URL) {
-    return { status: "failed" };
-  }
+  const submissionToken = formData.get("submissionToken");
+  if (!editing && !isEditToken(submissionToken)) return { status: "failed" };
 
   try {
+    // The client cannot be constructed without a database.
+    const { createRsvp, updateRsvp, findSubmittedRsvp } = await import("@/lib/rsvp");
+    // Replay before matching: the guest's own newly saved soup is no new warning.
+    const replay = !editing && await findSubmittedRsvp(submissionToken as string, parsed.data);
     const soup = parsed.data.soup;
     // Acknowledgment applies only to the name the guest was shown. This is an
     // advisory check, not an authorization boundary; all fields still validate.
-    if (soup && formData.get("acknowledgedSoupName") !== soup.name) {
+    if (!replay && soup && formData.get("acknowledgedSoupName") !== soup.name) {
       const matches = findSoupMatches(soup.name, await readPublicSoups(
-        editToken ? hashEditToken(editToken) : undefined,
+        hashEditToken(editToken ?? (submissionToken as string)),
       ));
       if (matches.length) {
         return { status: "duplicate", soupName: soup.name, matches };
       }
     }
-    // Imported here because the client cannot be constructed without a database.
-    const { createRsvp, updateRsvp } = await import("@/lib/rsvp");
     if (editToken) {
       if (!(await updateRsvp(editToken, parsed.data))) return { status: "unauthorized" };
     } else {
-      const created = await createRsvp(parsed.data);
+      const created = replay || await createRsvp(parsed.data, submissionToken as string);
       editToken = created.editToken;
     }
   } catch (error) {
+    if (error instanceof Error && error.name === "SubmissionConflict") return { status: "conflict" };
     // Only the kind of error is logged: its message can quote what the guest typed.
     console.error(
       "RSVP could not be saved:",
@@ -104,6 +122,12 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
     : { status: "attending", name: attendeeName, partySize, soup: soup?.name ?? null, editPath };
 }
 
+function singleField(formData: FormData, field: string) {
+  const values = formData.getAll(field);
+  // Repeated fields are ambiguous, so send them to schema validation as invalid.
+  return values.length > 1 ? values : values[0] ?? null;
+}
+
 export async function cancelGuestRsvp(
   _previous: RsvpFormState,
   formData: FormData,
@@ -112,7 +136,8 @@ export async function cancelGuestRsvp(
     return { status: "unauthorized" };
   }
   if (formData.get("confirmCancel") !== "yes") return { status: "failed" };
-  if (!process.env.DATABASE_URL) return { status: "failed" };
+  const blocked = await checkSubmission(formData);
+  if (blocked) return blocked;
   try {
     const { cancelRsvp } = await import("@/lib/rsvp");
     if (!(await cancelRsvp(formData.get("editToken")))) return { status: "unauthorized" };

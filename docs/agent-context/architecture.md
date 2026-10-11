@@ -28,6 +28,8 @@ Implemented during SP-17 (2026-10-10): confirmations display a copyable private 
 - Guest edits require a valid secret link; host actions require authenticated authorization.
 - Use idempotency / double-submit protection.
 
+Implemented during SP-18 (2026-10-10): fresh request-time form tokens reuse the unique edit-token hash for database-enforced creation idempotency; an immutable original-payload fingerprint rejects conflicting retries. PostgreSQL rate-limit buckets enforce limits across instances, with a hidden honeypot and accessible retry messages. Concurrent edits/cancellation serialize on the RSVP row; last completed write wins atomically. See the README for budgets, trusted-client identity and deployment limitations.
+
 ## Duplicate soup handling
 - Normalize whitespace, casing, punctuation, and common trailing "soup" wording.
 - Compare exact normalized names and obvious naming variants, with an extensible similarity heuristic for near matches.

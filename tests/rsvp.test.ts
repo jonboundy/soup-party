@@ -3,12 +3,13 @@ import { refresh, updateTag } from "next/cache";
 
 import { submitRsvp } from "@/app/actions";
 import { db } from "@/lib/db";
-import { hashEditToken } from "@/lib/edit-token";
+import { createEditToken, hashEditToken } from "@/lib/edit-token";
 import { createRsvp } from "@/lib/rsvp";
 
 import { clearRsvps } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
 const ada = { name: "Ada Lovelace", attendance: "attending", partySize: "2" };
 
@@ -20,6 +21,7 @@ const minestrone = {
 
 function submit(fields: Record<string, string>) {
   const formData = new FormData();
+  formData.set("submissionToken", createEditToken().token);
   for (const [name, value] of Object.entries(fields)) {
     formData.set(name, value);
   }

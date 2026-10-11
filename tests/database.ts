@@ -7,4 +7,5 @@ export async function clearRsvps() {
     throw new Error(`Refusing to clear "${name}": not a test database.`);
   }
   await db.rsvp.deleteMany();
+  await db.rsvpRateLimit.deleteMany();
 }

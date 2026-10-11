@@ -28,6 +28,8 @@ export type RsvpFormState =
   | { status: "duplicate"; soupName: string; matches: SoupMatch[] }
   /** Valid, but not saved. Submitting again may work. */
   | { status: "failed" }
+  | { status: "rate-limited"; retryAfter: number }
+  | { status: "conflict" }
   | { status: "unauthorized" }
   | { status: "cancelled" }
   /** `soup` is the name of the soup registered, or null if that is undecided. */

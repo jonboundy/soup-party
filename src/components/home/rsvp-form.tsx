@@ -110,9 +110,11 @@ function Confirmation({
 function RsvpForm({
   initial,
   editToken,
+  submissionToken,
 }: {
   initial?: EditableRsvp
   editToken?: string
+  submissionToken?: string
 }) {
   const editing = !!editToken
   const [state, formAction, pending] = React.useActionState<
@@ -149,7 +151,7 @@ function RsvpForm({
       form.current
         ?.querySelector<HTMLElement>("[aria-invalid=true]:not([type=hidden])")
         ?.focus()
-    } else if (state.status === "failed") {
+    } else if (state.status === "failed" || state.status === "rate-limited" || state.status === "conflict") {
       form.current?.querySelector<HTMLElement>("[type=submit]")?.focus()
     } else if (state.status === "duplicate") {
       form.current?.querySelector<HTMLElement>("#rsvp-duplicate-title")?.focus()
@@ -204,6 +206,7 @@ function RsvpForm({
       // run, which would clear the guest's answers after an error.
       onSubmit={(event) => {
         event.preventDefault()
+        if (pending) return
         const formData = new FormData(event.currentTarget)
         React.startTransition(() => {
           // Inside the transition so it lands together with the response.
@@ -215,6 +218,11 @@ function RsvpForm({
       className="max-w-md"
     >
       {editing && <input type="hidden" name="editToken" value={editToken} />}
+      {!editing && <input type="hidden" name="submissionToken" value={submissionToken} />}
+      <div hidden aria-hidden="true">
+        <label htmlFor="rsvp-website">Website</label>
+        <input id="rsvp-website" name="website" tabIndex={-1} autoComplete="off" />
+      </div>
       <FieldGroup className="gap-7">
         <Field data-invalid={!!errors.name}>
           <FieldLabel htmlFor="rsvp-name">Name</FieldLabel>
@@ -432,6 +440,21 @@ function RsvpForm({
           <Alert variant="destructive">
             <AlertTitle>The RSVP could not be saved.</AlertTitle>
             <AlertDescription>Try again.</AlertDescription>
+          </Alert>
+        )}
+        {state.status === "rate-limited" && (
+          <Alert variant="destructive">
+            <AlertTitle>Please wait before trying again.</AlertTitle>
+            <AlertDescription>Your answers are still here. Try again in {Math.ceil(state.retryAfter / 60)} {state.retryAfter > 60 ? "minutes" : "minute"}.</AlertDescription>
+          </Alert>
+        )}
+        {state.status === "conflict" && (
+          <Alert variant="destructive">
+            <AlertTitle>This form has already saved an RSVP.</AlertTitle>
+            <AlertDescription>
+              <p>Use its private link to change your response.</p>
+              <Link href={`/rsvp/edit?token=${submissionToken}`} referrerPolicy="no-referrer" className="underline underline-offset-4">Edit saved RSVP</Link>
+            </AlertDescription>
           </Alert>
         )}
         {warning && (
