@@ -28,6 +28,16 @@ export type RsvpFormState =
   | { status: "duplicate"; soupName: string; matches: SoupMatch[] }
   /** Valid, but not saved. Submitting again may work. */
   | { status: "failed" }
+  | { status: "unauthorized" }
+  | { status: "cancelled" }
   /** `soup` is the name of the soup registered, or null if that is undecided. */
-  | { status: "attending"; name: string; partySize: number; soup: string | null }
-  | { status: "declined"; name: string };
+  | { status: "attending"; name: string; partySize: number; soup: string | null; editPath: string }
+  | { status: "declined"; name: string; editPath: string };
+
+/** Fields available only after the guest's private token has been verified. */
+export type EditableRsvp = {
+  attendeeName: string;
+  status: "ATTENDING" | "DECLINED";
+  partySize: number | null;
+  soup: { name: string; category: string; description: string | null } | null;
+};

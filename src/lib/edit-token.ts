@@ -10,6 +10,10 @@ export function hashEditToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+export function isEditToken(token: unknown): token is string {
+  return typeof token === "string" && /^[A-Za-z0-9_-]{43}$/.test(token);
+}
+
 /**
  * A new private edit token (256 random bits) and the hash to store for it.
  * The raw token belongs in the guest's edit link and nowhere else: never in

@@ -67,7 +67,7 @@ The soup a guest intends to bring. Optional: an RSVP with no soup row is a guest
 
 - **RSVP to soup is one to zero-or-one.** `soups.rsvp_id` is a foreign key with a unique index, so an RSVP has at most one soup. Dropping the unique index is all it takes to allow several later.
 - **A soup cannot outlive its RSVP.** The foreign key is `ON DELETE CASCADE`: deleting an RSVP deletes its soup.
-- **Declining does not delete the soup.** A soup is *active* only while its RSVP is `ATTENDING`. Anything that lists soups publicly must filter on that:
+- **Declining or cancelling does not delete the soup.** Guest cancellation sets the RSVP to `DECLINED` and clears `party_size`; the saved link remains usable. Clearing the soup name while attending deletes the soup row. Other guest edits update the RSVP and soup in one transaction. A soup is *active* only while its RSVP is `ATTENDING`. Anything that lists soups publicly must filter on that:
 
   ```ts
   db.soup.findMany({ where: { rsvp: { status: "ATTENDING" } } });
