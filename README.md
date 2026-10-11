@@ -51,7 +51,7 @@ src/
   components/layout/   Page structure: container, section, reveal, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
-  lib/                 Shared utilities and the database client
+  lib/                 Shared utilities, validation and the database client
 tests/                 Tests, most of which need a database
 ```
 
@@ -74,6 +74,14 @@ The Prisma client is generated into `src/generated/prisma` on `npm install`. Aft
 Tables, relations and constraints are documented in [docs/data-model.md](docs/data-model.md), along with how to set the event's date, time, location and instructions.
 
 `npm test` uses a separate database, the one in `DATABASE_URL` with `_test` appended to its name. It is created and migrated automatically, and the tests delete its RSVPs as they go.
+
+## RSVPs
+
+The form on the homepage (`src/components/home/rsvp-form.tsx`) posts to the `submitRsvp` server action in `src/app/actions.ts`. The form leaves validation to the action, which is the only gate.
+
+- **Validation.** `parseRsvp` in `src/lib/rsvp-schema.ts` holds the rules: a name of up to 80 characters, one of the two answers, and a party of 1 to 10 when attending. The limits themselves are in `src/lib/rsvp-form.ts`, which the form shares.
+- **Storage.** `createRsvp` in `src/lib/rsvp.ts` writes the row. A declined RSVP has no party size, so the headcount is the sum of `party_size` over attending RSVPs.
+- **Edit tokens.** Every RSVP gets a random token (`src/lib/edit-token.ts`) and only its SHA-256 hash is stored. Nothing shows the token to the guest yet.
 
 ## Deployment
 
