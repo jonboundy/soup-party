@@ -11,7 +11,11 @@ function Wordmark({ className, ...props }: React.ComponentProps<"span">) {
       )}
       {...props}
     >
-      <span aria-hidden="true" className="size-2.5 rounded-full bg-brand" />
+      {/* Swells slightly when a link wrapping the wordmark is hovered. */}
+      <span
+        aria-hidden="true"
+        className="size-2.5 rounded-full bg-brand transition-transform duration-300 ease-out group-hover/wordmark:scale-125"
+      />
       Soup Party
     </span>
   )

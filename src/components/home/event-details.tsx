@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { Container } from "@/components/layout/container"
+import { Reveal } from "@/components/layout/reveal"
 import {
   Section,
   SectionEyebrow,
@@ -17,7 +18,7 @@ function Detail({
   children: React.ReactNode
 }) {
   return (
-    <div className="grid gap-2 border-t py-6 sm:grid-cols-[10rem_1fr] sm:items-baseline sm:gap-8 sm:py-8 lg:grid-cols-[14rem_1fr]">
+    <div className="grid gap-2 border-t py-6 last:border-b sm:grid-cols-[10rem_1fr] sm:items-baseline sm:gap-8 sm:py-8 lg:grid-cols-[14rem_1fr]">
       <dt className="type-eyebrow text-muted-foreground">{term}</dt>
       <dd className="flex max-w-2xl flex-col gap-1.5">{children}</dd>
     </div>
@@ -35,11 +36,11 @@ async function EventDetails() {
   return (
     <Section id="details" aria-labelledby="details-title" className="border-t">
       <Container>
-        <SectionHeader>
+        <SectionHeader reveal>
           <SectionEyebrow>Details</SectionEyebrow>
           <SectionTitle id="details-title">When and where.</SectionTitle>
         </SectionHeader>
-        <dl className="border-b">
+        <Reveal as="dl">
           <Detail term="Date">
             {start ? (
               <p className="type-heading">
@@ -72,7 +73,7 @@ async function EventDetails() {
                   href={mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center rounded-md text-sm font-medium underline decoration-1 underline-offset-4 hover:decoration-brand"
+                  className="inline-flex min-h-11 items-center rounded-md text-sm font-medium underline decoration-1 underline-offset-4 transition-colors hover:decoration-brand"
                 >
                   Map and directions
                   <span className="sr-only"> (opens in a new tab)</span>
@@ -87,7 +88,7 @@ async function EventDetails() {
               <Unset />
             )}
           </Detail>
-        </dl>
+        </Reveal>
       </Container>
     </Section>
   )

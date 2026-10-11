@@ -11,7 +11,7 @@ function Premise() {
   return (
     <Section aria-labelledby="premise-title" className="border-t">
       <Container>
-        <SectionHeader className="mb-0 sm:mb-0">
+        <SectionHeader reveal className="mb-0 sm:mb-0">
           <SectionEyebrow>The premise</SectionEyebrow>
           <SectionTitle id="premise-title">
             A potluck, limited to soup.
