@@ -42,7 +42,7 @@ One row per guest response.
 | `attendee_name` | `text` | Required. |
 | `status` | `rsvp_status` | `ATTENDING` or `DECLINED`. |
 | `party_size` | `integer` | People attending, including the guest. Null when declined. |
-| `edit_token_hash` | `text` | Unique. Hash of the private edit token. |
+| `edit_token_hash` | `text` | Unique. SHA-256 hash of the private edit token, in hex. |
 | `created_at`, `updated_at` | `timestamptz` | |
 
 Only the hash of an edit token is stored. The raw token exists in the guest's private link and nowhere else; it must not be logged or returned from a public endpoint.
@@ -90,7 +90,7 @@ The soup a guest intends to bring. Optional: an RSVP with no soup row is a guest
 
 `normalized_name` is deliberately **not** unique. Similar soups produce a warning, never a rejection.
 
-These are the rules the database guarantees. Friendlier limits, such as maximum lengths and party size, belong in request validation.
+These are the rules the database guarantees. Friendlier limits, such as maximum lengths and party size, belong in request validation: see `src/lib/rsvp-schema.ts`.
 
 Prisma's schema language has no syntax for `CHECK` constraints, so the `_check` rows above are hand-written SQL at the end of the first migration. Prisma leaves them alone when generating later migrations.
 

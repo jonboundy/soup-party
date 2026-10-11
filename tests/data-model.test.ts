@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { db } from "@/lib/db";
 
+import { clearRsvps } from "./database";
+
 let tokenCount = 0;
 
 function attending(overrides: { attendeeName?: string; partySize?: number | null } = {}) {
@@ -21,11 +23,7 @@ const minestrone = {
 };
 
 beforeEach(async () => {
-  const [{ name }] = await db.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;
-  if (!name.endsWith("_test")) {
-    throw new Error(`Refusing to clear "${name}": not a test database.`);
-  }
-  await db.rsvp.deleteMany();
+  await clearRsvps();
   await db.event.update({
     where: { id: 1 },
     data: { startsAt: null, timeZone: null, mapUrl: null },
@@ -92,6 +90,8 @@ describe("Rsvp", () => {
 
   it("advances updatedAt when changed", async () => {
     const created = await db.rsvp.create({ data: attending() });
+    // Timestamps have millisecond precision, and both calls can land in one.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     const updated = await db.rsvp.update({
       where: { id: created.id },
       data: { partySize: 3 },
