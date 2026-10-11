@@ -69,11 +69,9 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
 
   const parsed = parseRsvp({
     name: singleField(formData, "name"),
+    secondName: singleField(formData, "secondName"),
     attendance: singleField(formData, "attendance"),
-    partySize: singleField(formData, "partySize"),
     soupName: singleField(formData, "soupName"),
-    soupCategory: singleField(formData, "soupCategory"),
-    soupDescription: singleField(formData, "soupDescription"),
   });
   if (!parsed.success) {
     return { status: "invalid", errors: parsed.errors };
@@ -114,16 +112,16 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
     return { status: "failed" };
   }
 
-  const { attendeeName, partySize, soup } = parsed.data;
+  const { attendeeName: name, secondName, status, soup } = parsed.data;
   // Edits may remove a soup or change its public contributor name.
   if (soup || editing) {
     updateTag("soups");
     refresh();
   }
   const editPath = `/rsvp/edit?token=${editToken}`;
-  return partySize === null
-    ? { status: "declined", name: attendeeName, unlistedSoup, editPath }
-    : { status: "attending", name: attendeeName, partySize, soup, editPath };
+  return status === "DECLINED"
+    ? { status: "declined", name, secondName, unlistedSoup, editPath }
+    : { status: "attending", name, secondName, soup, editPath };
 }
 
 function singleField(formData: FormData, field: string) {
@@ -156,6 +154,7 @@ export async function cancelGuestRsvp(
   return {
     status: "cancelled",
     name: saved.attendeeName,
+    secondName: saved.secondName,
     unlistedSoup: saved.soup?.name ?? null,
     editPath: `/rsvp/edit?token=${editToken}`,
   };

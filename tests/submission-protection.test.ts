@@ -10,14 +10,14 @@ vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-vercel-forwarded-for": "192.0.2.1" }) }));
 
 const input = {
-  attendeeName: "Ada Lovelace", status: "ATTENDING" as const, partySize: 2,
-  soup: { name: "Minestrone", category: "VEGETABLE" as const, description: "Beans." },
+  attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING" as const,
+  soup: { name: "Minestrone" },
 };
 function form(token = createEditToken().token, overrides: Record<string, string> = {}) {
   const data = new FormData();
   for (const [key, value] of Object.entries({
-    name: "Ada Lovelace", attendance: "attending", partySize: "2", soupName: "Minestrone",
-    soupCategory: "VEGETABLE", soupDescription: "Beans.", submissionToken: token, ...overrides,
+    name: "Ada Lovelace", attendance: "attending", soupName: "Minestrone",
+    submissionToken: token, ...overrides,
   })) data.set(key, value);
   return data;
 }
@@ -48,12 +48,12 @@ describe("submission protection", () => {
     expect(await db.rsvp.count()).toBe(1);
     expect(await db.soup.count()).toBe(1);
     const before = await getEditableRsvp(token);
-    expect(await submit(form(token, { partySize: "3" }))).toEqual({ status: "conflict" });
+    expect(await submit(form(token, { secondName: "Charles Babbage" }))).toEqual({ status: "conflict" });
     expect(await getEditableRsvp(token)).toEqual(before);
   });
 
   it("deduplicates simultaneous declines without storing the submitted soup", async () => {
-    const data = form(undefined, { attendance: "declined", partySize: "garbage" });
+    const data = form(undefined, { attendance: "declined" });
     const results = await Promise.all([submit(data), submit(data), submit(data)]);
     expect(results[0]).toMatchObject({ status: "declined" });
     for (const result of results) expect(result).toEqual(results[0]);
@@ -65,12 +65,12 @@ describe("submission protection", () => {
     const token = createEditToken().token;
     const data = form(token);
     const original = await submit(data);
-    await updateRsvp(token, { ...input, attendeeName: "Ada Byron", partySize: 4, soup: null });
+    await updateRsvp(token, { ...input, attendeeName: "Ada Byron", secondName: "William King", soup: null });
     expect(await submit(data)).toEqual(original);
-    expect(await getEditableRsvp(token)).toMatchObject({ attendeeName: "Ada Byron", partySize: 4, soup: null });
+    expect(await getEditableRsvp(token)).toMatchObject({ attendeeName: "Ada Byron", secondName: "William King", soup: null });
     await cancelRsvp(token);
     expect(await submit(data)).toEqual(original);
-    expect(await getEditableRsvp(token)).toMatchObject({ status: "DECLINED", partySize: null });
+    expect(await getEditableRsvp(token)).toMatchObject({ status: "DECLINED", attendeeName: "Ada Byron" });
     expect(await db.rsvp.count()).toBe(1);
   });
 
@@ -97,7 +97,7 @@ describe("submission protection", () => {
     expect(await submit(repeated)).toMatchObject({ status: "invalid", errors: { name: expect.any(String) } });
     const file = form(); file.set("soupName", new Blob(["Soup"]), "soup.txt");
     expect(await submit(file)).toMatchObject({ status: "invalid", errors: { soupName: expect.any(String) } });
-    for (const field of ["name", "soupName", "soupDescription"]) {
+    for (const field of ["name", "secondName", "soupName"]) {
       expect(await submit(form(undefined, { [field]: "Bad\0text" }))).toMatchObject({ status: "invalid", errors: { [field]: expect.any(String) } });
       expect(await submit(form(undefined, { [field]: "a".repeat(1000) }))).toMatchObject({ status: "invalid" });
     }
@@ -113,11 +113,11 @@ describe("submission protection", () => {
     expect(await getEditableRsvp(editToken)).toEqual(input);
   });
 
-  it("serializes concurrent edits so name, party and soup come from one complete update", async () => {
+  it("serializes concurrent edits so names and soup come from one complete update", async () => {
     const { editToken } = await createRsvp({ ...input, soup: null });
     const updates = Array.from({ length: 5 }, (_, index) => ({
-      ...input, attendeeName: `Guest ${index}`, partySize: index + 1,
-      soup: { ...input.soup, name: `Soup ${index}`, description: `Batch ${index}` },
+      ...input, attendeeName: `Guest ${index}`, secondName: index % 2 ? `Partner ${index}` : null,
+      soup: { name: `Soup ${index}` },
     }));
     expect(await Promise.all(updates.map((update) => updateRsvp(editToken, update)))).toEqual(updates.map(() => true));
     expect(updates).toContainEqual(await getEditableRsvp(editToken));
@@ -126,11 +126,12 @@ describe("submission protection", () => {
 
   it("keeps concurrent editing and cancellation consistent, including soup retention", async () => {
     const { editToken } = await createRsvp(input);
-    const update = { ...input, attendeeName: "Ada Byron", partySize: 5, soup: { ...input.soup, name: "Tomato" } };
+    const update = { ...input, attendeeName: "Ada Byron", secondName: "William King", soup: { name: "Tomato" } };
     expect(await Promise.all([updateRsvp(editToken, update), cancelRsvp(editToken)])).toEqual([true, true]);
     const saved = await getEditableRsvp(editToken);
-    expect(saved).toMatchObject({ attendeeName: "Ada Byron", soup: update.soup });
-    expect(saved?.partySize).toBe(saved?.status === "ATTENDING" ? 5 : null);
+    expect(saved).toMatchObject({ attendeeName: "Ada Byron", secondName: "William King", soup: update.soup });
+    const [{ status, partySize }] = await db.rsvp.findMany();
+    expect(partySize).toBe(status === "ATTENDING" ? 2 : null);
     expect(await db.soup.count()).toBe(1);
   });
 });
@@ -141,7 +142,7 @@ describe("shared request limits", () => {
     const unavailable = vi.spyOn(db, "$executeRaw").mockRejectedValue(new Error("Unavailable"));
     try {
       expect(await submit(form())).toEqual({ status: "failed" });
-      const data = form(undefined, { editToken, partySize: "4", confirmCancel: "yes" });
+      const data = form(undefined, { editToken, name: "Mallory", confirmCancel: "yes" });
       expect(await editRsvp({ status: "idle" }, data)).toEqual({ status: "failed" });
       expect(await cancelGuestRsvp({ status: "idle" }, data)).toEqual({ status: "failed" });
       expect(await getEditableRsvp(editToken)).toEqual(input);
@@ -178,7 +179,7 @@ describe("shared request limits", () => {
     expect(await submit(form())).toEqual({ status: "rate-limited", retryAfter: expect.any(Number) });
     expect(await db.rsvp.count()).toBe(0);
     const { editToken } = await createRsvp(input);
-    const data = form(undefined, { editToken, partySize: "4", confirmCancel: "yes" });
+    const data = form(undefined, { editToken, name: "Mallory", confirmCancel: "yes" });
     expect(await editRsvp({ status: "idle" }, data)).toMatchObject({ status: "rate-limited" });
     expect(await cancelGuestRsvp({ status: "idle" }, data)).toMatchObject({ status: "rate-limited" });
     expect(await getEditableRsvp(editToken)).toEqual(input);

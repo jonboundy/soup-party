@@ -13,13 +13,8 @@ beforeEach(clearRsvps);
 afterEach(() => vi.unstubAllEnvs());
 afterAll(async () => db.$disconnect());
 
-async function register(name = "Minestrone", attendeeName = "Ada Lovelace") {
-  return createRsvp({
-    attendeeName,
-    status: "ATTENDING",
-    partySize: 2,
-    soup: { name, category: "VEGETABLE", description: "Beans.\nNo pasta." },
-  });
+async function register(name = "Minestrone", attendeeName = "Ada Lovelace", secondName: string | null = null) {
+  return createRsvp({ attendeeName, secondName, status: "ATTENDING", soup: { name } });
 }
 
 describe("public soup registry", () => {
@@ -27,18 +22,13 @@ describe("public soup registry", () => {
     expect(await getPublicSoups()).toEqual([]);
   });
 
-  it("exposes only soup details and the contributor's first name", async () => {
-    const { id, editToken } = await register();
+  it("exposes only the soup's name and the contributors' first names", async () => {
+    const { id, editToken } = await register("Minestrone", "Ada Lovelace", "Charles Babbage");
     const rsvp = await db.rsvp.findUniqueOrThrow({ where: { id }, include: { soup: true } });
     const soups = await getPublicSoups();
 
-    expect(soups).toEqual([{
-      name: "Minestrone",
-      category: "VEGETABLE",
-      description: "Beans.\nNo pasta.",
-      contributorName: "Ada",
-    }]);
-    for (const privateValue of [id, editToken, rsvp.editTokenHash, rsvp.soup!.id, "Lovelace"]) {
+    expect(soups).toEqual([{ name: "Minestrone", contributorName: "Ada and Charles" }]);
+    for (const privateValue of [id, editToken, rsvp.editTokenHash, rsvp.soup!.id, "Lovelace", "Babbage"]) {
       expect(JSON.stringify(soups)).not.toContain(privateValue);
     }
   });
@@ -46,7 +36,7 @@ describe("public soup registry", () => {
   it("omits declined guests' soups and attending guests who have not chosen a soup", async () => {
     const { id } = await register("Hidden soup", "Grace Hopper");
     await db.rsvp.update({ where: { id }, data: { status: "DECLINED", partySize: null } });
-    await createRsvp({ attendeeName: "Alan Turing", status: "ATTENDING", partySize: 1, soup: null });
+    await createRsvp({ attendeeName: "Alan Turing", secondName: null, status: "ATTENDING", soup: null });
     await register();
 
     expect((await getPublicSoups()).map(({ name }) => name)).toEqual(["Minestrone"]);
@@ -64,8 +54,8 @@ describe("public soup registry", () => {
   it("reflects registrations, soup edits, declines, and deleted RSVPs", async () => {
     const { id } = await register();
     expect(await getPublicSoups()).toHaveLength(1);
-    await db.soup.update({ where: { rsvpId: id }, data: { name: "Tomato", description: null } });
-    expect(await getPublicSoups()).toMatchObject([{ name: "Tomato", description: null }]);
+    await db.soup.update({ where: { rsvpId: id }, data: { name: "Tomato" } });
+    expect(await getPublicSoups()).toMatchObject([{ name: "Tomato" }]);
     await db.rsvp.update({ where: { id }, data: { status: "DECLINED", partySize: null } });
     expect(await getPublicSoups()).toEqual([]);
     await db.rsvp.update({ where: { id }, data: { status: "ATTENDING", partySize: 1 } });
