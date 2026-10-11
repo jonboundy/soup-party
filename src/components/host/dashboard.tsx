@@ -3,7 +3,7 @@ import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
 import { guestNames } from "@/lib/guest-names"
-import { getHostOverview, type HostRsvp } from "@/lib/host-rsvps"
+import type { HostOverview, HostRsvp } from "@/lib/host-rsvps"
 
 function people(count: number | null) {
   return count === 1 ? "1 person" : `${count} people`
@@ -102,8 +102,10 @@ function EditLink({ rsvp }: { rsvp: HostRsvp }) {
 
 /** The host's overview. The data read behind it checks the session itself. */
 async function HostDashboard() {
-  let overview: Awaited<ReturnType<typeof getHostOverview>>
+  let overview: HostOverview
   try {
+    // Imported here because the client cannot be constructed without a database.
+    const { getHostOverview } = await import("@/lib/host-rsvps")
     overview = await getHostOverview()
   } catch (error) {
     // Preserve the redirect for a session that ended, and other framework signals.

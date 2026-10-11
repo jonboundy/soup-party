@@ -164,7 +164,7 @@ The app is the `soup-party` project on Vercel, separate from the project that se
 - **Domain.** DNS for jonboundy.com is hosted at Porkbun. `soup` is a CNAME to the target Vercel shows under the project's Domains settings, and Vercel issues the certificate. No other record is involved.
 - **Database.** Production uses a Neon PostgreSQL database (`soup-party-db`), installed through the Vercel Marketplace, which manages its environment variables. The app connects with the pooled `DATABASE_URL`; migrations use the direct `DATABASE_URL_UNPOOLED`.
 - **Migrations.** `vercel.json` builds with `npm run vercel-build`, which runs `prisma migrate deploy` before `next build` on production deployments only, so a failed migration stops the release.
-- **Previews.** The database is connected to the production environment only. Preview deployments have no `DATABASE_URL` and never touch production data. Host sign-in is not available on them.
+- **Previews.** The database is connected to the production environment only. Preview deployments have no `DATABASE_URL` and never touch production data. Host sign-in is not available on them. The build loads every route, so a route must reach `src/lib/db.ts` only through an `import()` behind a `DATABASE_URL` check; `tests/no-database.test.ts` loads each one without a database.
 - **Secrets.** Environment variables live in Vercel, never in the repository. `vercel env ls` lists them and `vercel env add` adds one.
 - **Host password.** Run `npm run host:password`, add its output with `vercel env add HOST_PASSWORD_HASH production`, and redeploy. To change the password, replace the value the same way; this signs the host out everywhere.
 
