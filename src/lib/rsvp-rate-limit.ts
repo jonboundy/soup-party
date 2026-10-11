@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 
 export const RSVP_RATE_WINDOW_SECONDS = 600;
 export const RSVP_RATE_LIMIT = 30;
+export const HOST_SIGN_IN_RATE_LIMIT = 10;
 
 /** Only Vercel's overwritten header is trusted. Other deployments share a bucket. */
 export function rateLimitIdentity(requestHeaders: Pick<Headers, "get">) {
@@ -17,8 +18,8 @@ export function rateLimitIdentity(requestHeaders: Pick<Headers, "get">) {
 }
 
 /** Atomic across processes and simultaneous requests; no read/modify/write race. */
-export async function consumeRsvpAttempt(identity: string) {
-  const key = createHash("sha256").update(`rsvp:${identity}`).digest("hex");
+async function consumeAttempt(bucket: string, limit: number) {
+  const key = createHash("sha256").update(bucket).digest("hex");
   // Small transient table: inactive buckets expire after a day without a cron job.
   await db.$executeRaw`DELETE FROM rsvp_rate_limits
     WHERE window_start < CURRENT_TIMESTAMP - INTERVAL '1 day'`;
@@ -33,11 +34,19 @@ export async function consumeRsvpAttempt(identity: string) {
     RETURNING attempts,
       GREATEST(1, CEIL(EXTRACT(EPOCH FROM (window_start + ${RSVP_RATE_WINDOW_SECONDS} * INTERVAL '1 second' - CURRENT_TIMESTAMP))))::integer AS "retryAfter"
   `;
-  // Without a trusted proxy, use a generous site-wide limit, not spoofable IPs.
-  const limit = identity === "shared" ? 100 : RSVP_RATE_LIMIT;
   return result.attempts <= limit ? null : result.retryAfter;
+}
+
+export async function consumeRsvpAttempt(identity: string) {
+  // Without a trusted proxy, use a generous site-wide limit, not spoofable IPs.
+  return consumeAttempt(`rsvp:${identity}`, identity === "shared" ? 100 : RSVP_RATE_LIMIT);
 }
 
 export async function checkRsvpRateLimit() {
   return consumeRsvpAttempt(rateLimitIdentity(await headers()));
+}
+
+/** Password guesses spend their own, smaller budget, apart from RSVP traffic. */
+export async function checkHostSignInRateLimit() {
+  return consumeAttempt(`host-sign-in:${rateLimitIdentity(await headers())}`, HOST_SIGN_IN_RATE_LIMIT);
 }

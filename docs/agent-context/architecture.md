@@ -32,6 +32,8 @@ Implemented during SP-19 (2026-10-11): create, edit and cancel actions all retur
 
 Implemented during SP-18 (2026-10-10): fresh request-time form tokens reuse the unique edit-token hash for database-enforced creation idempotency; an immutable original-payload fingerprint rejects conflicting retries. PostgreSQL rate-limit buckets enforce limits across instances, with a hidden honeypot and accessible retry messages. Concurrent edits/cancellation serialize on the RSVP row; last completed write wins atomically. See the README for budgets, trusted-client identity and deployment limitations.
 
+Implemented during SP-20 (2026-10-11): the host signs in at `/host` with one password. Only its scrypt hash exists, in the `HOST_PASSWORD_HASH` environment variable; there is no account table and no auth library. Sessions are random tokens in an `HttpOnly` `__Host-` cookie, stored in `host_sessions` as an HMAC keyed with the password hash, valid seven days, revoked on sign-out and by a password change. Sign-in attempts have their own rate-limit budget. `requireHost()` / `isHostSignedIn()` in `src/lib/host-session.ts` are the server-side check, and each host page, action and data read must call one itself. SP-20 shipped the sign-in and a placeholder page only; the dashboard and host edits are SP-21 and SP-22.
+
 ## Duplicate soup handling
 - Normalize whitespace, casing, punctuation, and common trailing "soup" wording.
 - Compare exact normalized names and obvious naming variants, with an extensible similarity heuristic for near matches.

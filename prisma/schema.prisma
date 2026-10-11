@@ -100,3 +100,13 @@ model RsvpRateLimit {
   @@index([windowStart])
   @@map("rsvp_rate_limits")
 }
+
+/// Host sign-ins. Only a keyed hash of each session token is stored.
+model HostSession {
+  tokenHash String   @id @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("host_sessions")
+}
