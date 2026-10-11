@@ -50,7 +50,7 @@ scripts/               Command-line helpers
 src/
   app/                 Routes, layouts and global styles
   components/home/     Homepage sections, in page order
-  components/host/     The host's sign-in form
+  components/host/     The host's sign-in form and RSVP overview
   components/layout/   Page structure: container, section, reveal, site header, nav and footer
   components/ui/       shadcn/ui components (add with `npx shadcn@latest add <name>`)
   generated/prisma/    Prisma client (generated, not committed)
@@ -104,7 +104,7 @@ The list is included in the initial HTML, with a “Loading…” label on the S
 
 ## Host sign-in
 
-`/host` is the host's area. Guests have no accounts and nothing links there. Signed out, it shows a password form; signed in, a sign-out button and, for now, a placeholder where the RSVP overview will go.
+`/host` is the host's area. Guests have no accounts and nothing links there. Signed out, it shows a password form; signed in, the RSVP overview and a sign-out button.
 
 - **Password.** There is one host and no account table. `npm run host:password` asks for a password of at least 12 characters and prints its scrypt hash, which goes in `HOST_PASSWORD_HASH`. The password itself is stored nowhere. `verifyHostPassword` in `src/lib/host-password.ts` compares in constant time. While the variable is empty or unreadable nobody can sign in, and the form says sign-in is not available.
 - **Sessions.** A correct password creates a 256-bit random token (`src/lib/host-session.ts`). The browser keeps it for seven days in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie named `__Host-soup-host`, or `soup-host` in development, where there is no HTTPS. The `host_sessions` table keeps only an HMAC of the token, keyed with the password hash. Signing out deletes that row, so a copied cookie stops working too. Changing `HOST_PASSWORD_HASH` ends every session. Expired rows are removed at the next sign-in.
@@ -112,6 +112,16 @@ The list is included in the initial HTML, with a “Loading…” label on the S
 - **Abuse controls.** Sign-in attempts are counted before the password is looked at: 10 per 10-minute window per client, through the RSVP limiter but with a budget of their own. Without Vercel's trusted header every client shares that budget. Next.js refuses a server action posted from another origin. `/host` is excluded from indexing and sent with `no-store`.
 
 A production build served locally with `npm run start` sets the `Secure` cookie over HTTP. Chrome and Firefox accept that on `localhost`; Safari does not, so sign in with `npm run dev` there.
+
+## Host overview
+
+Signed in, `/host` shows every response (`src/components/host/dashboard.tsx`):
+
+- **Figures.** Guests expected is the sum of party sizes across attending RSVPs. Attending, declined, soups and undecided count responses. A soup counts only while its RSVP is attending, as in the public registry; undecided is attending RSVPs with no soup.
+- **Lists.** Attending RSVPs in the order received, with full name, party size, soup name, category and description; active soups alphabetically with the contributor's full name; attending guests without a soup; and declines, including a soup kept on file by a guest who cancelled, marked as not listed.
+- **Times.** When each response was received and last changed, shown in the event's `time_zone`, or UTC until one is set.
+
+`getHostOverview` in `src/lib/host-rsvps.ts` calls `requireHost()` itself, reads the database on every request with no cache, and derives the figures from the same rows as the lists. It selects no edit-token or submission hashes. The page does not update itself: reloading it shows the latest. Editing and removing entries is SP-22.
 
 ## Deployment
 

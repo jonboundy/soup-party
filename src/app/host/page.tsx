@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { signOutHost } from "@/app/host/actions";
+import { HostDashboard } from "@/components/host/dashboard";
 import { HostSignInForm } from "@/components/host/sign-in-form";
 import { Container } from "@/components/layout/container";
 import { Section } from "@/components/layout/section";
@@ -20,19 +21,29 @@ async function HostArea() {
       const { isHostSignedIn } = await import("@/lib/host-session");
       signedIn = await isHostSignedIn();
     } catch {
-      return <Unavailable />;
+      return <Frame><Unavailable /></Frame>;
     }
   }
-  if (!signedIn) return <SignIn />;
-  return <div className="space-y-7">
-    <div className="space-y-3">
-      <h2 className="type-heading">You are signed in.</h2>
-      <p className="text-muted-foreground">The RSVP overview will appear here.</p>
+  if (!signedIn) return <Frame><SignIn /></Frame>;
+  return <Frame wide>
+    <div className="space-y-14 sm:space-y-20">
+      <HostDashboard />
+      <form action={signOutHost}>
+        <Button type="submit" variant="outline">Sign out</Button>
+      </form>
     </div>
-    <form action={signOutHost}>
-      <Button type="submit" variant="outline">Sign out</Button>
-    </form>
-  </div>;
+  </Frame>;
+}
+
+/** The sign-in form keeps to a narrow column; the overview uses the page's width. */
+function Frame({ wide = false, children }: { wide?: boolean; children: React.ReactNode }) {
+  return <Container size={wide ? "default" : "narrow"}>
+    <div className="mb-10 space-y-3">
+      <p className="type-eyebrow text-muted-foreground">Host</p>
+      <h1 className="type-title">{wide ? "The responses." : "Administration."}</h1>
+    </div>
+    {children}
+  </Container>;
 }
 
 function SignIn() {
@@ -54,14 +65,8 @@ function Unavailable() {
 
 export default function HostPage() {
   return <Section>
-    <Container size="narrow">
-      <div className="mb-10 space-y-3">
-        <p className="type-eyebrow text-muted-foreground">Host</p>
-        <h1 className="type-title">Administration.</h1>
-      </div>
-      <Suspense fallback={<p role="status">Loading…</p>}>
-        <HostArea />
-      </Suspense>
-    </Container>
+    <Suspense fallback={<Container size="narrow"><p role="status">Loading…</p></Container>}>
+      <HostArea />
+    </Suspense>
   </Section>;
 }
