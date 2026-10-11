@@ -54,15 +54,17 @@ model Event {
 }
 
 model Rsvp {
-  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  attendeeName  String     @map("attendee_name")
-  status        RsvpStatus
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attendeeName   String     @map("attendee_name")
+  status         RsvpStatus
   /// People attending, including the guest. Null when declined.
-  partySize     Int?       @map("party_size")
+  partySize      Int?       @map("party_size")
   /// Hash of the private edit token. The raw token is never stored.
-  editTokenHash String     @unique @map("edit_token_hash")
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  editTokenHash  String     @unique @map("edit_token_hash")
+  /// Original validated submission fingerprint; immutable across guest edits.
+  submissionHash String?    @map("submission_hash")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   soup Soup?
 
@@ -87,4 +89,14 @@ model Soup {
 
   @@index([normalizedName])
   @@map("soups")
+}
+
+/// Shared fixed-window abuse control. Keys are hashes, never raw addresses.
+model RsvpRateLimit {
+  key         String   @id
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  attempts    Int
+
+  @@index([windowStart])
+  @@map("rsvp_rate_limits")
 }

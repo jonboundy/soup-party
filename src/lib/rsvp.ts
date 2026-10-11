@@ -1,34 +1,67 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { createEditToken, hashEditToken, isEditToken } from "@/lib/edit-token";
 import type { RsvpInput } from "@/lib/rsvp-schema";
 import { normalizeSoupName } from "@/lib/soup-name";
 
-/**
- * Stores a validated response, and with it the guest's soup if they named
- * one. Returns the raw edit token, which is not kept anywhere else, so the
- * caller can put it in the guest's private confirmation link.
- */
-export async function createRsvp({ attendeeName, status, partySize, soup }: RsvpInput) {
-  const { token, hash } = createEditToken();
+export class SubmissionConflict extends Error {
+  name = "SubmissionConflict";
+}
 
-  const { id } = await db.rsvp.create({
-    data: {
-      attendeeName,
-      status,
-      partySize,
-      editTokenHash: hash,
-      // Created in the same transaction: a soup that cannot be saved leaves
-      // no RSVP behind.
-      soup: soup
-        ? { create: { ...soup, normalizedName: normalizeSoupName(soup.name) } }
-        : undefined,
-    },
-    select: { id: true },
+function submissionHash(input: RsvpInput) {
+  return createHash("sha256").update(JSON.stringify([
+    input.attendeeName, input.status, input.partySize,
+    input.soup ? [input.soup.name, input.soup.category, input.soup.description] : null,
+  ])).digest("hex");
+}
+
+/** A retry never changes a saved RSVP, even if it has since been edited. */
+export async function findSubmittedRsvp(token: string, input: RsvpInput) {
+  if (!isEditToken(token)) throw new SubmissionConflict();
+  const saved = await db.rsvp.findUnique({
+    where: { editTokenHash: hashEditToken(token) },
+    select: { id: true, submissionHash: true },
   });
+  if (!saved) return null;
+  if (saved.submissionHash !== submissionHash(input)) throw new SubmissionConflict();
+  return { id: saved.id, editToken: token };
+}
 
-  return { id, editToken: token };
+/** Stores RSVP and soup atomically; duplicate tokens recover the original result. */
+export async function createRsvp(input: RsvpInput, submissionToken?: string) {
+  const { attendeeName, status, partySize, soup } = input;
+  const token = submissionToken ?? createEditToken().token;
+  if (!isEditToken(token)) throw new SubmissionConflict();
+  const hash = hashEditToken(token);
+
+  try {
+    const { id } = await db.rsvp.create({
+      data: {
+        attendeeName,
+        status,
+        partySize,
+        editTokenHash: hash,
+        submissionHash: submissionHash(input),
+        // Created in the same transaction: a soup that cannot be saved leaves
+        // no RSVP behind.
+        soup: soup
+          ? { create: { ...soup, normalizedName: normalizeSoupName(soup.name) } }
+          : undefined,
+      },
+      select: { id: true },
+    });
+    return { id, editToken: token };
+  } catch (error) {
+    // PostgreSQL's unique constraint waits for a competing insert to finish.
+    // Recover its confirmation after a lost response or simultaneous click.
+    if ((error as { code?: string })?.code === "P2002") {
+      const saved = await findSubmittedRsvp(token, input);
+      if (saved) return saved;
+    }
+    throw error;
+  }
 }
 
 /** Uncached private read. The token is the only guest authorization credential. */

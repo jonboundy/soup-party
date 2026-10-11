@@ -16,8 +16,8 @@ export function isEditToken(token: unknown): token is string {
 
 /**
  * A new private edit token (256 random bits) and the hash to store for it.
- * The raw token belongs in the guest's edit link and nowhere else: never in
- * the database, a log or a public response.
+ * The raw token belongs in the guest's private form and edit link: never in
+ * the database, a log or a public data response.
  */
 export function createEditToken() {
   const token = randomBytes(32).toString("base64url");

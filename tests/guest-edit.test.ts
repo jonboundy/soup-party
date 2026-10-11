@@ -8,6 +8,7 @@ import { readPublicSoups } from "@/lib/public-soups";
 import { clearRsvps } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 const original = {
   attendeeName: "Ada Lovelace", status: "ATTENDING" as const, partySize: 2,
   soup: { name: "Minestrone", category: "VEGETABLE" as const, description: "Beans." },

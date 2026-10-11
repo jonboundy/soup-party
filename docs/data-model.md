@@ -43,9 +43,16 @@ One row per guest response.
 | `status` | `rsvp_status` | `ATTENDING` or `DECLINED`. |
 | `party_size` | `integer` | People attending, including the guest. Null when declined. |
 | `edit_token_hash` | `text` | Unique. SHA-256 hash of the private edit token, in hex. |
+| `submission_hash` | `text` | Nullable for older RSVPs. Immutable SHA-256 fingerprint of the original validated creation payload; rejects conflicting retries. Never returned publicly. |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-Only the hash of an edit token is stored. The raw token exists in the guest's private link and nowhere else; it must not be logged or returned from a public endpoint.
+Only the hash of an edit token is stored. The raw token is issued privately in a fresh form and its confirmation/edit link; it must not be logged or returned from a public data endpoint.
+
+New forms receive their private random token at request time. Its unique hash also serves as the creation idempotency key. A simultaneous insert waits on the unique constraint, then recovers the existing row; a retry must match its original `submission_hash`. Guest edits leave that fingerprint unchanged.
+
+### `rsvp_rate_limits` (`RsvpRateLimit`)
+
+Transient, shared abuse-control buckets: `key` (hashed client identity, primary key), `window_start` (timestamptz), and `attempts` (positive integer). A single PostgreSQL upsert increments or resets each 10-minute window atomically. `window_start` is indexed for removal of buckets inactive for more than a day. No raw IP addresses or guest credentials are stored here. See the README for deployment-specific identity and limits.
 
 ### `soups` (`Soup`)
 
