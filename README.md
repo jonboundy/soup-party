@@ -80,7 +80,9 @@ Tables, relations and constraints are documented in [docs/data-model.md](docs/da
 The form on the homepage (`src/components/home/rsvp-form.tsx`) posts to the `submitRsvp` server action in `src/app/actions.ts`. The form leaves validation to the action, which is the only gate.
 
 - **Validation.** `parseRsvp` in `src/lib/rsvp-schema.ts` holds the rules: a name of up to 80 characters, one of the two answers, and a party of 1 to 10 when attending. The limits themselves are in `src/lib/rsvp-form.ts`, which the form shares.
-- **Storage.** `createRsvp` in `src/lib/rsvp.ts` writes the row. A declined RSVP has no party size, so the headcount is the sum of `party_size` over attending RSVPs.
+- **Soup.** An attending guest may name the soup they are bringing, or leave the name blank and decide later. A named soup needs a category from `src/lib/soup-categories.ts` and may have a description of up to 280 characters. A category or description without a name is ignored, as is any soup sent with a decline.
+- **Storage.** `createRsvp` in `src/lib/rsvp.ts` writes the RSVP and its soup, if there is one, in a single transaction. A declined RSVP has no party size, so the headcount is the sum of `party_size` over attending RSVPs. An attending RSVP with no soup row is a guest who has not decided.
+- **Soup names.** `normalizeSoupName` in `src/lib/soup-name.ts` produces the `normalized_name` stored beside each soup, for duplicate detection. Nothing compares them yet.
 - **Edit tokens.** Every RSVP gets a random token (`src/lib/edit-token.ts`) and only its SHA-256 hash is stored. Nothing shows the token to the guest yet.
 
 ## Deployment
