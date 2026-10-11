@@ -23,13 +23,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import {
   MAX_PARTY_SIZE,
   NAME_MAX_LENGTH,
+  SOUP_DESCRIPTION_MAX_LENGTH,
+  SOUP_NAME_MAX_LENGTH,
   type RsvpErrors,
   type RsvpField,
   type RsvpFormState,
 } from "@/lib/rsvp-form"
+import { SOUP_CATEGORIES } from "@/lib/soup-categories"
 
 const partySizes = Array.from({ length: MAX_PARTY_SIZE }, (_, index) => ({
   label: index === 0 ? "1 person" : `${index + 1} people`,
@@ -75,6 +79,18 @@ function Confirmation({
           ? `${state.name}, party of ${state.partySize}.`
           : `${state.name}, not attending.`}
       </p>
+      {state.status === "attending" && (
+        <p className="text-muted-foreground">
+          {state.soup ? (
+            <>
+              Your soup has been registered:{" "}
+              <span className="text-foreground">{state.soup}</span>
+            </>
+          ) : (
+            "Soup to be decided."
+          )}
+        </p>
+      )}
     </div>
   )
 }
@@ -86,6 +102,8 @@ function RsvpForm() {
   >(submit, { status: "idle" })
   const [attendance, setAttendance] = React.useState("")
   const [partySize, setPartySize] = React.useState("1")
+  const [soupName, setSoupName] = React.useState("")
+  const [soupCategory, setSoupCategory] = React.useState<string | null>(null)
   // Fields changed since the last response. Their errors no longer apply.
   const [corrected, setCorrected] = React.useState<RsvpField[]>([])
   const form = React.useRef<HTMLFormElement>(null)
@@ -247,6 +265,103 @@ function RsvpForm() {
               </FieldDescription>
             )}
           </Field>
+        )}
+        {attendance === "attending" && (
+          <Field data-invalid={!!errors.soupName}>
+            <FieldLabel htmlFor="rsvp-soup-name">Soup</FieldLabel>
+            <Input
+              id="rsvp-soup-name"
+              name="soupName"
+              autoComplete="off"
+              maxLength={SOUP_NAME_MAX_LENGTH}
+              value={soupName}
+              onChange={(event) => {
+                setSoupName(event.target.value)
+                correct("soupName")
+              }}
+              aria-invalid={!!errors.soupName}
+              aria-describedby={
+                errors.soupName
+                  ? "rsvp-soup-name-error"
+                  : "rsvp-soup-name-description"
+              }
+            />
+            {errors.soupName ? (
+              <FieldError id="rsvp-soup-name-error">
+                {errors.soupName}
+              </FieldError>
+            ) : (
+              <FieldDescription id="rsvp-soup-name-description">
+                Leave blank to decide later.
+              </FieldDescription>
+            )}
+          </Field>
+        )}
+        {/* A soup needs a name before it can be categorized or described. */}
+        {attendance === "attending" && soupName.trim() !== "" && (
+          <>
+            <Field data-invalid={!!errors.soupCategory}>
+              <FieldLabel htmlFor="rsvp-soup-category">Soup category</FieldLabel>
+              <Select
+                name="soupCategory"
+                items={SOUP_CATEGORIES}
+                value={soupCategory}
+                onValueChange={(value) => {
+                  setSoupCategory(value)
+                  correct("soupCategory")
+                }}
+              >
+                <SelectTrigger
+                  id="rsvp-soup-category"
+                  className="w-full"
+                  aria-invalid={!!errors.soupCategory}
+                  aria-describedby={
+                    errors.soupCategory ? "rsvp-soup-category-error" : undefined
+                  }
+                >
+                  <SelectValue placeholder="Choose a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SOUP_CATEGORIES.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.soupCategory && (
+                <FieldError id="rsvp-soup-category-error">
+                  {errors.soupCategory}
+                </FieldError>
+              )}
+            </Field>
+            <Field data-invalid={!!errors.soupDescription}>
+              <FieldLabel htmlFor="rsvp-soup-description">
+                Soup description
+              </FieldLabel>
+              <Textarea
+                id="rsvp-soup-description"
+                name="soupDescription"
+                maxLength={SOUP_DESCRIPTION_MAX_LENGTH}
+                onChange={() => correct("soupDescription")}
+                aria-invalid={!!errors.soupDescription}
+                aria-describedby={
+                  errors.soupDescription
+                    ? "rsvp-soup-description-error"
+                    : "rsvp-soup-description-description"
+                }
+              />
+              {errors.soupDescription ? (
+                <FieldError id="rsvp-soup-description-error">
+                  {errors.soupDescription}
+                </FieldError>
+              ) : (
+                <FieldDescription id="rsvp-soup-description-description">
+                  Optional.
+                </FieldDescription>
+              )}
+            </Field>
+          </>
         )}
         {state.status === "failed" && (
           <Alert variant="destructive">

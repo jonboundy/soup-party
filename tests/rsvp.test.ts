@@ -7,6 +7,14 @@ import { createRsvp } from "@/lib/rsvp";
 
 import { clearRsvps } from "./database";
 
+const ada = { name: "Ada Lovelace", attendance: "attending", partySize: "2" };
+
+const minestrone = {
+  soupName: " Minestrone  Soup ",
+  soupCategory: "VEGETABLE",
+  soupDescription: "No pasta.",
+};
+
 function submit(fields: Record<string, string>) {
   const formData = new FormData();
   for (const [name, value] of Object.entries(fields)) {
@@ -37,10 +45,67 @@ describe("submitRsvp", () => {
   it("stores an attending guest and their party size", async () => {
     const result = await submit({ name: " Ada Lovelace ", attendance: "attending", partySize: "3" });
 
-    expect(result).toEqual({ status: "attending", name: "Ada Lovelace", partySize: 3 });
+    expect(result).toEqual({ status: "attending", name: "Ada Lovelace", partySize: 3, soup: null });
     expect(await db.rsvp.findMany()).toMatchObject([
       { attendeeName: "Ada Lovelace", status: "ATTENDING", partySize: 3 },
     ]);
+  });
+
+  it("stores an attending guest's soup, linked to their RSVP", async () => {
+    const result = await submit({ ...ada, ...minestrone });
+
+    expect(result).toEqual({
+      status: "attending",
+      name: "Ada Lovelace",
+      partySize: 2,
+      soup: "Minestrone Soup",
+    });
+    const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
+    expect(rsvp).toMatchObject({ attendeeName: "Ada Lovelace", status: "ATTENDING" });
+    expect(rsvp.soup).toMatchObject({
+      rsvpId: rsvp.id,
+      name: "Minestrone Soup",
+      normalizedName: "minestrone",
+      category: "VEGETABLE",
+      description: "No pasta.",
+    });
+  });
+
+  it("stores a soup without a description", async () => {
+    await submit({ ...ada, ...minestrone, soupDescription: "  " });
+
+    expect(await db.soup.findMany()).toMatchObject([{ name: "Minestrone Soup", description: null }]);
+  });
+
+  it("stores an attending guest who will decide on the soup later", async () => {
+    const result = await submit({ ...ada, soupName: "", soupCategory: "VEGETABLE" });
+
+    expect(result).toMatchObject({ status: "attending", soup: null });
+    expect(await db.rsvp.count({ where: { status: "ATTENDING" } })).toBe(1);
+    expect(await db.soup.count()).toBe(0);
+  });
+
+  it("stores no soup for a declining guest, even if one was sent", async () => {
+    const result = await submit({ ...ada, ...minestrone, attendance: "declined" });
+
+    expect(result).toEqual({ status: "declined", name: "Ada Lovelace" });
+    expect(await db.rsvp.count({ where: { status: "DECLINED" } })).toBe(1);
+    expect(await db.soup.count()).toBe(0);
+  });
+
+  it("stores neither the RSVP nor the soup when the soup is invalid", async () => {
+    const result = await submit({ ...ada, ...minestrone, soupCategory: "SALAD" });
+
+    expect(result).toEqual({ status: "invalid", errors: { soupCategory: "Choose a category." } });
+    expect(await db.rsvp.count()).toBe(0);
+    expect(await db.soup.count()).toBe(0);
+  });
+
+  it("lets two guests register the same soup", async () => {
+    await submit({ ...ada, ...minestrone });
+    await submit({ ...ada, ...minestrone, name: "Grace Hopper", soupName: "minestrone!" });
+
+    expect(await db.soup.count({ where: { normalizedName: "minestrone" } })).toBe(2);
   });
 
   it("stores a declining guest without a party size", async () => {
@@ -84,21 +149,34 @@ describe("submitRsvp", () => {
       editTokenHash: "chosen-by-the-guest",
       createdAt: "2020-01-01T00:00:00Z",
     });
+    await submit({
+      ...ada,
+      ...minestrone,
+      normalizedName: "chosen-by-the-guest",
+      rsvpId: id,
+      "soup.id": id,
+    });
 
-    const [rsvp] = await db.rsvp.findMany();
+    const [rsvp] = await db.rsvp.findMany({ where: { status: "DECLINED" } });
     expect(rsvp).toMatchObject({ status: "DECLINED", partySize: null });
     expect(rsvp.id).not.toBe(id);
     expect(rsvp.editTokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(rsvp.createdAt.getFullYear()).toBeGreaterThan(2020);
+
+    const [soup] = await db.soup.findMany();
+    expect(soup.normalizedName).toBe("minestrone");
+    expect(soup.id).not.toBe(id);
+    expect(soup.rsvpId).not.toBe(id);
   });
 
   it("returns nothing private", async () => {
-    const result = await submit({ name: "Ada Lovelace", attendance: "attending", partySize: "2" });
-    const [rsvp] = await db.rsvp.findMany();
+    const result = await submit({ ...ada, ...minestrone });
+    const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
 
     expect(JSON.stringify(result)).not.toContain(rsvp.id);
+    expect(JSON.stringify(result)).not.toContain(rsvp.soup?.id);
     expect(JSON.stringify(result)).not.toContain(rsvp.editTokenHash);
-    expect(Object.keys(result).sort()).toEqual(["name", "partySize", "status"]);
+    expect(Object.keys(result).sort()).toEqual(["name", "partySize", "soup", "status"]);
   });
 
   it("reports a failure when there is no database", async () => {
@@ -118,7 +196,12 @@ describe("submitRsvp", () => {
 });
 
 describe("createRsvp", () => {
-  const ada = { attendeeName: "Ada Lovelace", status: "ATTENDING" as const, partySize: 2 };
+  const ada = {
+    attendeeName: "Ada Lovelace",
+    status: "ATTENDING" as const,
+    partySize: 2,
+    soup: null,
+  };
 
   it("stores the hash of the edit token, never the token", async () => {
     const { id, editToken } = await createRsvp(ada);
@@ -135,5 +218,27 @@ describe("createRsvp", () => {
 
     expect(new Set(tokens.map(({ editToken }) => editToken)).size).toBe(3);
     expect(await db.rsvp.count()).toBe(3);
+  });
+
+  it("stores the soup under its normalized name", async () => {
+    const { id } = await createRsvp({
+      ...ada,
+      soup: { name: "Mom’s Chicken-Noodle Soup", category: "NOODLE", description: null },
+    });
+
+    expect(await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).toMatchObject({
+      name: "Mom’s Chicken-Noodle Soup",
+      normalizedName: "moms chicken noodle",
+      category: "NOODLE",
+      description: null,
+    });
+  });
+
+  it("stores no RSVP when its soup cannot be stored", async () => {
+    await expect(
+      createRsvp({ ...ada, soup: { name: " ", category: "OTHER", description: null } }),
+    ).rejects.toThrow("soups_name_check");
+
+    expect(await db.rsvp.count()).toBe(0);
   });
 });
