@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 
 import { cancelGuestRsvp, editRsvp, submitRsvp } from "@/app/actions"
-import { PrivateEditLink } from "@/components/private-edit-link"
+import { RsvpConfirmation } from "@/components/rsvp-confirmation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -61,52 +61,6 @@ async function submit(
   }
 }
 
-function Confirmation({
-  state,
-  editing,
-}: {
-  state: Extract<RsvpFormState, { status: "attending" | "declined" }>
-  editing: boolean
-}) {
-  const title = React.useRef<HTMLHeadingElement>(null)
-
-  // The form, and whatever had focus in it, is gone. Focus moves here so
-  // keyboard and screen reader users land on the outcome.
-  React.useEffect(() => {
-    title.current?.focus()
-  }, [])
-
-  return (
-    <div className="flex flex-col gap-2">
-      <h3 ref={title} tabIndex={-1} className="type-heading outline-none">
-        {editing
-          ? "Your RSVP has been updated."
-          : state.status === "attending"
-            ? "You’re on the list."
-            : "Your regrets have been recorded."}
-      </h3>
-      <p className="type-lead text-muted-foreground [overflow-wrap:anywhere]">
-        {state.status === "attending"
-          ? `${state.name}, party of ${state.partySize}.`
-          : `${state.name}, not attending.`}
-      </p>
-      {state.status === "attending" && (
-        <p className="text-muted-foreground [overflow-wrap:anywhere]">
-          {state.soup ? (
-            <>
-              Your soup has been registered:{" "}
-              <span className="text-foreground">{state.soup}</span>
-            </>
-          ) : (
-            "Soup to be decided."
-          )}
-        </p>
-      )}
-      <PrivateEditLink editPath={state.editPath} />
-    </div>
-  )
-}
-
 function RsvpForm({
   initial,
   editToken,
@@ -156,24 +110,21 @@ function RsvpForm({
     } else if (state.status === "duplicate") {
       form.current?.querySelector<HTMLElement>("#rsvp-duplicate-title")?.focus()
     }
-    if (state.status === "cancelled" || state.status === "unauthorized") {
-      outcome.current?.focus()
-    }
+    if (state.status === "unauthorized") outcome.current?.focus()
   }, [state])
 
-  if (state.status === "attending" || state.status === "declined") {
-    return <Confirmation state={state} editing={editing} />
+  if (state.status === "attending" || state.status === "declined" || state.status === "cancelled") {
+    return <RsvpConfirmation state={state} editing={editing} />
   }
 
-  if (state.status === "cancelled" || state.status === "unauthorized") {
+  if (state.status === "unauthorized") {
     return <div className="flex max-w-md flex-col gap-3">
       <h2 ref={outcome} tabIndex={-1} className="type-heading outline-none">
-        {state.status === "cancelled" ? "Your RSVP has been cancelled." : "This edit link is not valid."}
+        This edit link is not valid.
       </h2>
       <p className="text-muted-foreground">
-        {state.status === "cancelled" ? "You’re no longer on the attending list. Your soup has been released." : "Open the private link saved from your RSVP confirmation."}
+        Open the private link saved from your RSVP confirmation.
       </p>
-      {state.status === "cancelled" && <a href={`/rsvp/edit?token=${editToken}`} className="underline underline-offset-4">Change your response</a>}
       <Link href="/" className="underline underline-offset-4">Back to Soup Party</Link>
     </div>
   }
