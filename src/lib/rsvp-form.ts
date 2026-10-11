@@ -1,6 +1,8 @@
 // What the RSVP form and its server action share. Kept free of the validation
 // library so the browser does not have to download it.
 
+import type { SoupMatch } from "@/lib/soup-matches";
+
 export const NAME_MAX_LENGTH = 80;
 export const MAX_PARTY_SIZE = 10;
 export const SOUP_NAME_MAX_LENGTH = 80;
@@ -22,6 +24,8 @@ export type RsvpErrors = Partial<Record<RsvpField, string>>;
 export type RsvpFormState =
   | { status: "idle" }
   | { status: "invalid"; errors: RsvpErrors }
+  /** Nothing saved yet. The guest may change the name or acknowledge this one. */
+  | { status: "duplicate"; soupName: string; matches: SoupMatch[] }
   /** Valid, but not saved. Submitting again may work. */
   | { status: "failed" }
   /** `soup` is the name of the soup registered, or null if that is undecided. */

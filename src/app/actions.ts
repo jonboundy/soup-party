@@ -2,8 +2,10 @@
 
 import { refresh, updateTag } from "next/cache";
 
+import { readPublicSoups } from "@/lib/public-soups";
 import type { RsvpFormState } from "@/lib/rsvp-form";
 import { parseRsvp } from "@/lib/rsvp-schema";
+import { findSoupMatches } from "@/lib/soup-matches";
 
 /**
  * Records a guest's response. Anyone can post to this, with anything, so only
@@ -35,6 +37,15 @@ export async function submitRsvp(
   }
 
   try {
+    const soup = parsed.data.soup;
+    // Acknowledgment applies only to the name the guest was shown. This is an
+    // advisory check, not an authorization boundary; all fields still validate.
+    if (soup && formData.get("acknowledgedSoupName") !== soup.name) {
+      const matches = findSoupMatches(soup.name, await readPublicSoups());
+      if (matches.length) {
+        return { status: "duplicate", soupName: soup.name, matches };
+      }
+    }
     // Imported here because the client cannot be constructed without a database.
     const { createRsvp } = await import("@/lib/rsvp");
     await createRsvp(parsed.data);

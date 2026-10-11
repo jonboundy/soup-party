@@ -117,6 +117,8 @@ function RsvpForm() {
         ?.focus()
     } else if (state.status === "failed") {
       form.current?.querySelector<HTMLElement>("[type=submit]")?.focus()
+    } else if (state.status === "duplicate") {
+      form.current?.querySelector<HTMLElement>("#rsvp-duplicate-title")?.focus()
     }
   }, [state])
 
@@ -134,6 +136,13 @@ function RsvpForm() {
   function correct(field: RsvpField) {
     if (errors[field]) setCorrected([...corrected, field])
   }
+
+  const warning =
+    state.status === "duplicate" &&
+    attendance === "attending" &&
+    soupName.trim().replace(/\s+/g, " ") === state.soupName
+      ? state
+      : null
 
   return (
     <form
@@ -369,9 +378,51 @@ function RsvpForm() {
             <AlertDescription>Try again.</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" size="lg" disabled={pending} className="self-start">
-          {pending ? "Sending" : "RSVP"}
-        </Button>
+        {warning && (
+          <Alert aria-labelledby="rsvp-duplicate-title">
+            <AlertTitle id="rsvp-duplicate-title" tabIndex={-1}>
+              {warning.matches.some(({ kind }) => kind === "exact")
+                ? "This soup has already been registered."
+                : "A similar soup has already been registered."}
+            </AlertTitle>
+            <AlertDescription className="space-y-3 [overflow-wrap:anywhere]">
+              <ul className="space-y-1">
+                {warning.matches.map((match, index) => (
+                  <li key={index}>
+                    <span className="text-foreground">{match.name}</span>
+                    {" — brought by "}{match.contributorName}
+                  </li>
+                ))}
+              </ul>
+              <p>Choose a different soup, or register your version anyway.</p>
+            </AlertDescription>
+            <input
+              type="hidden"
+              name="acknowledgedSoupName"
+              value={warning.soupName}
+            />
+          </Alert>
+        )}
+        <div className="flex flex-wrap gap-3">
+          {warning && (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              disabled={pending}
+              onClick={() => {
+                form.current
+                  ?.querySelector<HTMLInputElement>("#rsvp-soup-name")
+                  ?.focus()
+              }}
+            >
+              Choose another soup
+            </Button>
+          )}
+          <Button type="submit" size="lg" disabled={pending}>
+            {pending ? "Sending" : warning ? "Register this soup anyway" : "RSVP"}
+          </Button>
+        </div>
       </FieldGroup>
     </form>
   )

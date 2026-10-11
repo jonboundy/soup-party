@@ -10,6 +10,11 @@ export async function getPublicSoups() {
   cacheLife({ stale: 300, revalidate: 1, expire: 300 });
   cacheTag("soups");
 
+  return readPublicSoups();
+}
+
+/** Fresh public projection for pre-submission checks, outside the registry cache. */
+export async function readPublicSoups() {
   // Preview deployments have no database.
   if (!process.env.DATABASE_URL) return [];
 
