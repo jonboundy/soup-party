@@ -26,7 +26,7 @@ export async function getHostOverview() {
         partySize: true,
         createdAt: true,
         updatedAt: true,
-        soup: { select: { name: true, updatedAt: true } },
+        soup: { select: { id: true, name: true, recipeUrl: true, recipeText: true, updatedAt: true } },
       },
     }),
     db.event.findUnique({ where: { id: 1 }, select: { timeZone: true } }),
@@ -36,7 +36,11 @@ export async function getHostOverview() {
     ...rsvp,
     // A guest may change only the soup, which leaves the RSVP row as it was.
     updatedAt: soup && soup.updatedAt > updatedAt ? soup.updatedAt : updatedAt,
-    soup: soup && { name: soup.name },
+    // The id is public once there is a recipe: it is the recipe page's address.
+    soup: soup && {
+      name: soup.name,
+      recipePath: soup.recipeUrl || soup.recipeText ? `/soups/${soup.id}` : null,
+    },
   }));
   const attending = rsvps.filter(({ status }) => status === "ATTENDING");
   const declined = rsvps.filter(({ status }) => status === "DECLINED");
@@ -81,7 +85,7 @@ export async function getHostRsvp(id: unknown) {
       attendeeName: true,
       secondName: true,
       status: true,
-      soup: { select: { name: true } },
+      soup: { select: { name: true, recipeUrl: true, recipeText: true } },
     },
   });
 }

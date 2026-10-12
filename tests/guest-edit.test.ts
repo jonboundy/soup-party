@@ -4,14 +4,14 @@ import { cancelGuestRsvp, editRsvp } from "@/app/actions";
 import { db } from "@/lib/db";
 import { getEditableRsvp, createRsvp, updateRsvp } from "@/lib/rsvp";
 import { createEditToken, hashEditToken } from "@/lib/edit-token";
-import { readPublicSoups } from "@/lib/public-soups";
-import { clearRsvps } from "./database";
+import { readPublicRecipe, readPublicSoups } from "@/lib/public-soups";
+import { clearRsvps, soupNamed } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 const original = {
   attendeeName: "Ada Lovelace", secondName: "Charles Babbage", status: "ATTENDING" as const,
-  soup: { name: "Minestrone" },
+  soup: soupNamed("Minestrone"),
 };
 const fields = { name: "Ada Lovelace", secondName: "Charles Babbage", attendance: "attending", soupName: "Minestrone" };
 const partySize = async (id: string) => (await db.rsvp.findUniqueOrThrow({ where: { id } })).partySize;
@@ -62,7 +62,7 @@ describe("private guest RSVP management", () => {
       id: otherId, rsvpId: otherId, editTokenHash: other.editTokenHash, normalizedName: "wrong", status: "DECLINED",
     })).toEqual({
       status: "attending", name: "Ada Byron", secondName: null, editPath: `/rsvp/edit?token=${editToken}`,
-      soup: { name: "Tomato Basil Soup" },
+      soup: soupNamed("Tomato Basil Soup"),
     });
     expect(await db.rsvp.findUniqueOrThrow({ where: { id }, include: { soup: true } })).toMatchObject({
       attendeeName: "Ada Byron", secondName: null, partySize: 1, status: "ATTENDING", editTokenHash: hashEditToken(editToken),
@@ -78,7 +78,7 @@ describe("private guest RSVP management", () => {
     const { id, editToken } = await createRsvp(original);
     const before = await db.rsvp.findUniqueOrThrow({ where: { id }, include: { soup: true } });
     expect(await edit(editToken, { name: " ", soupName: "a".repeat(81) })).toMatchObject({ status: "invalid" });
-    await expect(updateRsvp(editToken, { ...original, attendeeName: "Changed", soup: { name: " " } })).rejects.toThrow();
+    await expect(updateRsvp(editToken, { ...original, attendeeName: "Changed", soup: soupNamed(" ") })).rejects.toThrow();
     expect(await db.rsvp.findUniqueOrThrow({ where: { id }, include: { soup: true } })).toEqual(before);
     expect(updateTag).not.toHaveBeenCalled();
   });
@@ -86,7 +86,7 @@ describe("private guest RSVP management", () => {
   it("excludes the guest's soup from warnings and permits an acknowledged match to another guest", async () => {
     const { editToken } = await createRsvp(original);
     expect(await edit(editToken)).toMatchObject({ status: "attending" });
-    await createRsvp({ ...original, attendeeName: "Grace Hopper", soup: { name: "Tomato basil" } });
+    await createRsvp({ ...original, attendeeName: "Grace Hopper", soup: soupNamed("Tomato basil") });
     vi.clearAllMocks();
     expect(await edit(editToken, { soupName: "Tomato basil" })).toEqual({
       status: "duplicate", soupName: "Tomato basil", matches: [{ name: "Tomato basil", contributorName: "Grace and Charles", kind: "exact" }],
@@ -158,5 +158,56 @@ describe("private guest RSVP management", () => {
     vi.stubEnv("DATABASE_URL", "");
     expect(await edit(editToken)).toEqual({ status: "failed" });
     expect(await cancel(editToken)).toEqual({ status: "failed" });
+  });
+
+  it("adds, changes and removes a recipe using the same link", async () => {
+    const { id, editToken } = await createRsvp(original);
+    const soupId = (await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).id;
+    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+
+    expect(await edit(editToken, recipe)).toMatchObject({ status: "attending", soup: { name: "Minestrone", ...recipe } });
+    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
+    expect(await readPublicSoups()).toMatchObject([{ recipePath: `/soups/${soupId}` }]);
+    expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
+    expect(updateTag).toHaveBeenCalledWith("soups");
+
+    // Renaming the soup keeps its recipe, and its address.
+    expect(await edit(editToken, { ...recipe, soupName: "Ribollita", recipeText: "Bread." })).toMatchObject({ status: "attending" });
+    expect(await readPublicRecipe(soupId)).toMatchObject({ name: "Ribollita", recipeUrl: recipe.recipeUrl, recipeText: "Bread." });
+
+    // Sent blank, or not sent at all, the recipe is removed.
+    expect(await edit(editToken, { recipeUrl: "", recipeText: " " })).toMatchObject({ soup: { recipeUrl: null, recipeText: null } });
+    expect(await readPublicRecipe(soupId)).toBeNull();
+    expect(await readPublicSoups()).toMatchObject([{ recipePath: null }]);
+  });
+
+  it("saves nothing when the recipe is invalid", async () => {
+    const { editToken } = await createRsvp(original);
+    expect(await edit(editToken, { name: "Ada Byron", recipeUrl: "minestrone" })).toEqual({
+      status: "invalid", errors: { recipeUrl: "Enter a web address, such as https://example.com/soup." },
+    });
+    expect(await getEditableRsvp(editToken)).toEqual(original);
+    expect(updateTag).not.toHaveBeenCalled();
+  });
+
+  it("keeps a recipe, unlisted, through a decline or cancellation, and loses it with the soup", async () => {
+    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." };
+    const { id, editToken } = await createRsvp({ ...original, soup: soupNamed("Minestrone", recipe) });
+    const soupId = (await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).id;
+
+    expect(await edit(editToken, { attendance: "declined" })).toMatchObject({ status: "declined" });
+    expect(await readPublicRecipe(soupId)).toBeNull();
+    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
+    expect(await edit(editToken, recipe)).toMatchObject({ status: "attending" });
+    expect(await cancel(editToken)).toMatchObject({ status: "cancelled" });
+    expect(await readPublicRecipe(soupId)).toBeNull();
+    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
+    expect(await edit(editToken, recipe)).toMatchObject({ status: "attending" });
+    expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
+
+    // A soup with no name is no soup, so its recipe goes with it.
+    expect(await edit(editToken, { soupName: "" })).toMatchObject({ status: "attending", soup: null });
+    expect(await readPublicRecipe(soupId)).toBeNull();
+    expect(await db.soup.count()).toBe(0);
   });
 });

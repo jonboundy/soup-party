@@ -158,7 +158,18 @@ async function HostDashboard() {
             </div>
             <div>
               {rsvp.soup ? (
-                <p className="font-medium">{rsvp.soup.name}</p>
+                <>
+                  <p className="font-medium">{rsvp.soup.name}</p>
+                  {rsvp.soup.recipePath && (
+                    <Link
+                      href={rsvp.soup.recipePath}
+                      aria-label={`Recipe for ${rsvp.soup.name}`}
+                      className="mt-2 inline-block text-sm underline underline-offset-4"
+                    >
+                      Recipe
+                    </Link>
+                  )}
+                </>
               ) : (
                 <p className="text-muted-foreground">Soup to be decided.</p>
               )}

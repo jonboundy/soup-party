@@ -4,10 +4,10 @@ import { updateTag } from "next/cache";
 import { removeHostRsvp, saveHostRsvp } from "@/app/host/actions";
 import { db } from "@/lib/db";
 import { getHostOverview, getHostRsvp } from "@/lib/host-rsvps";
-import { readPublicSoups } from "@/lib/public-soups";
+import { readPublicRecipe, readPublicSoups } from "@/lib/public-soups";
 import { cancelRsvp, createRsvp, getEditableRsvp } from "@/lib/rsvp";
 
-import { clearRsvps } from "./database";
+import { clearRsvps, soupNamed } from "./database";
 
 const host = vi.hoisted(() => ({ signedIn: true }));
 vi.mock("@/lib/host-session", () => ({
@@ -26,7 +26,7 @@ vi.mock("next/navigation", () => ({
 
 const original = {
   attendeeName: "Ada Lovelace", secondName: "Charles Babbage", status: "ATTENDING" as const,
-  soup: { name: "Minestrone" },
+  soup: soupNamed("Minestrone"),
 };
 const fields = {
   name: "Ada Lovelace", secondName: "Charles Babbage", attendance: "attending", soupName: "Minestrone",
@@ -91,7 +91,7 @@ describe("host corrections", () => {
 
     expect(updateTag).toHaveBeenCalledWith("soups");
     expect(await readPublicSoups()).toEqual([
-      { name: "Tomato Basil Soup", contributorName: "Ada and William" },
+      { name: "Tomato Basil Soup", contributorName: "Ada and William", recipePath: null },
     ]);
     const overview = await getHostOverview();
     expect(overview.counts).toMatchObject({ guests: 4, soups: 1 });
@@ -118,6 +118,33 @@ describe("host corrections", () => {
     expect(await readPublicSoups()).toEqual([]);
     expect((await stored(id))!.soup).toBeNull();
     expect((await getHostOverview()).counts).toMatchObject({ attending: 1, undecided: 1 });
+  });
+
+  it("add a recipe on a guest's behalf, and keep, change or remove the guest's own", async () => {
+    const { id, editToken } = await createRsvp(original);
+    const soupId = (await stored(id))!.soup!.id;
+    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+
+    await expect(save(id, { recipeUrl: " example.com/minestrone ", recipeText: "Beans.\r\n\r\nSimmer. " })).rejects.toThrow(done);
+    expect(await getHostRsvp(id)).toEqual({ ...original, soup: { name: "Minestrone", ...recipe } });
+    expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
+    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
+    const overview = await getHostOverview();
+    expect(overview.attending[0].soup).toEqual({ name: "Minestrone", recipePath: `/soups/${soupId}` });
+    expect(overview.soups).toMatchObject([{ recipePath: `/soups/${soupId}` }]);
+
+    // A correction that carries the recipe back, as the editor does, keeps it.
+    await expect(save(id, { ...recipe, name: "Ada Byron" })).rejects.toThrow(done);
+    expect(await readPublicRecipe(soupId)).toMatchObject({ ...recipe, contributorName: "Ada and Charles" });
+
+    expect(await save(id, { ...recipe, recipeUrl: "javascript:alert(1)" })).toEqual({
+      status: "invalid", errors: { recipeUrl: "Enter a web address, such as https://example.com/soup." },
+    });
+    expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
+
+    await expect(save(id, { name: "Ada Byron" })).rejects.toThrow(done);
+    expect(await readPublicRecipe(soupId)).toBeNull();
+    expect((await getHostOverview()).attending[0].soup).toEqual({ name: "Minestrone", recipePath: null });
   });
 
   it("unlist a soup on a decline and relist it on a return, as a guest's own would", async () => {
@@ -176,7 +203,7 @@ describe("host removal", () => {
   it("deletes the RSVP and its soup, and nothing else", async () => {
     const { id, editToken } = await createRsvp(original);
     const { id: otherId } = await createRsvp({
-      ...original, attendeeName: "Grace Hopper", secondName: null, soup: { name: "Borscht" },
+      ...original, attendeeName: "Grace Hopper", secondName: null, soup: soupNamed("Borscht"),
     });
 
     await expect(remove(id)).rejects.toThrow(done);

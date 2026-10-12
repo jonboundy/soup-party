@@ -84,6 +84,21 @@ function RsvpConfirmation({
             </Entry>
           )
         )}
+        {state.status === "attending" && state.soup && (
+          <Entry term="Recipe">
+            {state.soup.recipeUrl || state.soup.recipeText ? (
+              <>
+                <p>Provided.</p>
+                <Note>Anyone can read it from the soup list.</Note>
+              </>
+            ) : (
+              <>
+                <p>Not provided.</p>
+                <Note>Add one at any time with your private edit link.</Note>
+              </>
+            )}
+          </Entry>
+        )}
       </dl>
       <PrivateEditLink
         editPath={state.editPath}

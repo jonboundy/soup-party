@@ -1,4 +1,10 @@
 import { db } from "@/lib/db";
+import type { SoupInput } from "@/lib/rsvp-schema";
+
+/** A soup as validation hands it on: with no recipe, unless one is given. */
+export function soupNamed(name: string, recipe: Partial<Omit<SoupInput, "name">> = {}): SoupInput {
+  return { name, recipeUrl: null, recipeText: null, ...recipe };
+}
 
 /**
  * Deletes every RSVP, and with them every soup, along with rate limits and

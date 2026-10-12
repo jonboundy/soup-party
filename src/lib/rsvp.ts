@@ -11,8 +11,12 @@ export class SubmissionConflict extends Error {
 }
 
 function submissionHash(input: RsvpInput) {
+  const { recipeUrl = null, recipeText = null } = input.soup ?? {};
   return createHash("sha256").update(JSON.stringify([
     input.attendeeName, input.secondName, input.status, input.soup?.name ?? null,
+    // Left out when there is none, so a response without a recipe keeps the
+    // fingerprint it was given before recipes existed.
+    ...(recipeUrl || recipeText ? [recipeUrl, recipeText] : []),
   ])).digest("hex");
 }
 
@@ -78,7 +82,7 @@ export async function getEditableRsvp(token: unknown) {
       attendeeName: true,
       secondName: true,
       status: true,
-      soup: { select: { name: true } },
+      soup: { select: { name: true, recipeUrl: true, recipeText: true } },
     },
   });
 }
@@ -107,7 +111,7 @@ export async function writeRsvp(where: { editTokenHash: string } | { id: string 
     });
     if (rsvp.count !== 1) return false;
     const { id } = await tx.rsvp.findUniqueOrThrow({ where, select: { id: true } });
-    // Declines release the soup publicly but keep its details for a later return.
+    // Declines release the soup publicly but keep it, and its recipe, for a later return.
     if (input.status === "ATTENDING") {
       if (input.soup) {
         const soup = { ...input.soup, normalizedName: normalizeSoupName(input.soup.name) };

@@ -220,4 +220,29 @@ describe("Soup", () => {
     expect(await db.soup.count()).toBe(1);
     expect(await db.soup.count({ where: { rsvp: { status: "ATTENDING" } } })).toBe(0);
   });
+
+  it("has no recipe unless one is given", async () => {
+    const rsvp = await db.rsvp.create({
+      data: { ...attending(), soup: { create: minestrone } },
+      include: { soup: true },
+    });
+
+    expect(rsvp.soup).toMatchObject({ recipeUrl: null, recipeText: null });
+  });
+
+  it("accepts only a web address as the recipe link", async () => {
+    const withLink = (recipeUrl: string) =>
+      db.rsvp.create({ data: { ...attending(), soup: { create: { ...minestrone, recipeUrl } } } });
+
+    await expect(withLink("https://example.com/minestrone")).resolves.toBeDefined();
+    for (const recipeUrl of ["", "javascript:alert(1)", "example.com", "https://example.com/my soup"]) {
+      await expect(withLink(recipeUrl)).rejects.toThrow("soups_recipe_url_check");
+    }
+  });
+
+  it("rejects a blank written recipe", async () => {
+    await expect(
+      db.rsvp.create({ data: { ...attending(), soup: { create: { ...minestrone, recipeText: " " } } } }),
+    ).rejects.toThrow("soups_recipe_text_check");
+  });
 });

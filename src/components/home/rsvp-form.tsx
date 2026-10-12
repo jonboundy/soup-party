@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 
 import { cancelGuestRsvp, editRsvp, submitRsvp } from "@/app/actions"
+import { RecipeFields } from "@/components/recipe-fields"
 import { RsvpConfirmation } from "@/components/rsvp-confirmation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -63,6 +64,17 @@ function RsvpForm({
     initial ? initial.status === "ATTENDING" ? "attending" : "declined" : ""
   )
   const [soupName, setSoupName] = React.useState(initial?.soup?.name ?? "")
+  // Held here, not in the fields: they leave the form while the soup has no
+  // name, and what was typed in them should be there when they return.
+  const [recipe, setRecipe] = React.useState({
+    url: initial?.soup?.recipeUrl ?? "",
+    text: initial?.soup?.recipeText ?? "",
+  })
+  const savedRecipe = !!(initial?.soup?.recipeUrl || initial?.soup?.recipeText)
+  const [recipeOpen, setRecipeOpen] = React.useState(savedRecipe)
+  // Set by the button that opens the recipe fields, so focus follows it
+  // there and nowhere else puts it there.
+  const recipeRequested = React.useRef(false)
   const [confirmCancel, setConfirmCancel] = React.useState(false)
   const outcome = React.useRef<HTMLHeadingElement>(null)
   // Fields changed since the last response. Their errors no longer apply.
@@ -74,6 +86,13 @@ function RsvpForm({
       form.current?.querySelector<HTMLElement>("#rsvp-confirm-cancel")?.focus()
     }
   }, [confirmCancel])
+
+  React.useEffect(() => {
+    if (recipeOpen && recipeRequested.current) {
+      recipeRequested.current = false
+      form.current?.querySelector<HTMLElement>("#rsvp-recipe-url")?.focus()
+    }
+  }, [recipeOpen])
 
   // After a rejected submission, focus goes to the first field that needs
   // correcting, or back to the button when the response was not saved.
@@ -273,11 +292,38 @@ function RsvpForm({
               </FieldError>
             ) : (
               <FieldDescription id="rsvp-soup-name-description">
-                Leave blank to decide later.
+                {savedRecipe
+                  ? "Leaving this blank removes the soup and its recipe."
+                  : "Leave blank to decide later."}
               </FieldDescription>
             )}
           </Field>
         )}
+        {attendance === "attending" &&
+          soupName.trim() !== "" &&
+          // An error in a field brings the fields with it.
+          (recipeOpen || errors.recipeUrl || errors.recipeText ? (
+            <RecipeFields
+              id="rsvp"
+              description="Optional. A link, the recipe written out, or both. Anyone can read it."
+              value={recipe}
+              onChange={setRecipe}
+              errors={errors}
+              onCorrect={correct}
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => {
+                recipeRequested.current = true
+                setRecipeOpen(true)
+              }}
+            >
+              Add a recipe
+            </Button>
+          ))}
         {state.status === "failed" && (
           <Alert variant="destructive">
             <AlertTitle>The RSVP could not be saved.</AlertTitle>

@@ -8,7 +8,7 @@ These supersede the PRD wording summarized below wherever the two disagree. The 
 
 - **A response is one person or a couple.** No party size is asked for. An optional second name makes a party of two, both names reach the host, and both first names appear beside the soup. Implemented.
 - **A soup is only its name.** Category and description are removed. Implemented. SP-25's bowls can no longer vary by category and need another source of variation, such as the soup's name.
-- **Recipes, so guests can make the soups after the party.** Optional on a soup, in any combination of a link, typed text, and up to three photos of a cookbook page or a handwritten card. Guests add them at RSVP or later through the private edit link, and the host can add one on a guest's behalf. Public as soon as added, through a “Recipe” link in the registry to a noindex page per soup. Photos are shrunk in the browser and stored in Postgres, not in a file store. Not yet implemented: link and text first, photos after.
+- **Recipes, so guests can make the soups after the party.** Optional on a soup, in any combination of a link, typed text, and up to three photos of a cookbook page or a handwritten card. Guests add them at RSVP or later through the private edit link, and the host can add one on a guest's behalf. Public as soon as added, through a “Recipe” link in the registry to a noindex page per soup. Photos are shrunk in the browser and stored in Postgres, not in a file store. Link and text are implemented (2026-10-11); photos are not, and are the next piece of work.
 
 ## v1.0 — Invitation-ready launch (label `v1-0`, SP-6..SP-22)
 - Responsive public landing page: minimalist hero, event info, RSVP call-to-action, soup registry.

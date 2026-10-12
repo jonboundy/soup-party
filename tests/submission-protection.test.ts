@@ -1,17 +1,18 @@
+import { createHash } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { submitRsvp, editRsvp, cancelGuestRsvp } from "@/app/actions";
 import { db } from "@/lib/db";
 import { createEditToken } from "@/lib/edit-token";
 import { cancelRsvp, createRsvp, getEditableRsvp, updateRsvp } from "@/lib/rsvp";
 import { consumeRsvpAttempt, rateLimitIdentity, RSVP_RATE_LIMIT } from "@/lib/rsvp-rate-limit";
-import { clearRsvps } from "./database";
+import { clearRsvps, soupNamed } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-vercel-forwarded-for": "192.0.2.1" }) }));
 
 const input = {
   attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING" as const,
-  soup: { name: "Minestrone" },
+  soup: soupNamed("Minestrone"),
 };
 function form(token = createEditToken().token, overrides: Record<string, string> = {}) {
   const data = new FormData();
@@ -50,6 +51,27 @@ describe("submission protection", () => {
     const before = await getEditableRsvp(token);
     expect(await submit(form(token, { secondName: "Charles Babbage" }))).toEqual({ status: "conflict" });
     expect(await getEditableRsvp(token)).toEqual(before);
+  });
+
+  it("treats a recipe as part of the answers a retry must match", async () => {
+    const token = createEditToken().token;
+    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." };
+    const saved = await submit(form(token, recipe));
+    expect(saved).toMatchObject({ status: "attending", soup: recipe });
+    expect(await submit(form(token, recipe))).toEqual(saved);
+    const others: Record<string, string>[] = [{}, { recipeUrl: recipe.recipeUrl }, { ...recipe, recipeText: "Boil." }];
+    for (const changed of others) {
+      expect(await submit(form(token, changed))).toEqual({ status: "conflict" });
+    }
+    expect(await getEditableRsvp(token)).toMatchObject({ soup: recipe });
+  });
+
+  it("gives a response without a recipe the fingerprint it had before recipes existed", async () => {
+    const { id } = await createRsvp(input);
+    const before = createHash("sha256")
+      .update(JSON.stringify(["Ada Lovelace", null, "ATTENDING", "Minestrone"]))
+      .digest("hex");
+    expect((await db.rsvp.findUniqueOrThrow({ where: { id } })).submissionHash).toBe(before);
   });
 
   it("deduplicates simultaneous declines without storing the submitted soup", async () => {
@@ -117,7 +139,7 @@ describe("submission protection", () => {
     const { editToken } = await createRsvp({ ...input, soup: null });
     const updates = Array.from({ length: 5 }, (_, index) => ({
       ...input, attendeeName: `Guest ${index}`, secondName: index % 2 ? `Partner ${index}` : null,
-      soup: { name: `Soup ${index}` },
+      soup: soupNamed(`Soup ${index}`),
     }));
     expect(await Promise.all(updates.map((update) => updateRsvp(editToken, update)))).toEqual(updates.map(() => true));
     expect(updates).toContainEqual(await getEditableRsvp(editToken));
@@ -126,7 +148,7 @@ describe("submission protection", () => {
 
   it("keeps concurrent editing and cancellation consistent, including soup retention", async () => {
     const { editToken } = await createRsvp(input);
-    const update = { ...input, attendeeName: "Ada Byron", secondName: "William King", soup: { name: "Tomato" } };
+    const update = { ...input, attendeeName: "Ada Byron", secondName: "William King", soup: soupNamed("Tomato") };
     expect(await Promise.all([updateRsvp(editToken, update), cancelRsvp(editToken)])).toEqual([true, true]);
     const saved = await getEditableRsvp(editToken);
     expect(saved).toMatchObject({ attendeeName: "Ada Byron", secondName: "William King", soup: update.soup });

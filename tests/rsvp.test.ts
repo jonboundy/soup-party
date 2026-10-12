@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { createEditToken, hashEditToken } from "@/lib/edit-token";
 import { createRsvp } from "@/lib/rsvp";
 
-import { clearRsvps } from "./database";
+import { clearRsvps, soupNamed } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
@@ -75,7 +75,7 @@ describe("submitRsvp", () => {
       status: "attending",
       name: "Ada Lovelace",
       secondName: null,
-      soup: { name: "Minestrone Soup" },
+      soup: soupNamed("Minestrone Soup"),
       editPath: expect.any(String),
     });
     const [rsvp] = await db.rsvp.findMany({ include: { soup: true } });
@@ -146,7 +146,7 @@ describe("submitRsvp", () => {
       attendeeName: "Ada Lovelace",
       secondName: "Charles Babbage",
       status: "ATTENDING",
-      soup: { name: "Broccoli cheddar" },
+      soup: soupNamed("Broccoli cheddar"),
     });
     const rsvp = await db.rsvp.findUniqueOrThrow({ where: { id }, include: { soup: true } });
     const warning = await submit({ ...ada, soupName: "Creamy broccoli and cheddar soup" });
@@ -279,7 +279,7 @@ describe("submitRsvp", () => {
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(hashEditToken(token)).toBe(rsvp.editTokenHash);
     expect(Object.keys(result).sort()).toEqual(["editPath", "name", "secondName", "soup", "status"]);
-    expect(Object.keys(result.soup!)).toEqual(["name"]);
+    expect(Object.keys(result.soup!)).toEqual(["name", "recipeUrl", "recipeText"]);
   });
 
   it("reports a failure when there is no database", async () => {
@@ -295,6 +295,38 @@ describe("submitRsvp", () => {
 
     expect(result).toEqual({ status: "failed" });
     expect(await db.rsvp.count()).toBe(0);
+  });
+
+  it("stores a recipe with the soup and confirms it to the guest", async () => {
+    const result = await submit({
+      ...ada, soupName: "Minestrone", recipeUrl: " example.com/minestrone ", recipeText: "Beans.\r\n\r\nSimmer.  ",
+    });
+
+    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+    expect(result).toMatchObject({ status: "attending", soup: { name: "Minestrone", ...recipe } });
+    expect(await db.soup.findMany()).toMatchObject([{ name: "Minestrone", ...recipe }]);
+    expect(updateTag).toHaveBeenCalledExactlyOnceWith("soups");
+  });
+
+  it("stores nothing when the recipe is invalid, or has no soup", async () => {
+    expect(await submit({ ...ada, soupName: "Minestrone", recipeUrl: "javascript:alert(1)" })).toEqual({
+      status: "invalid",
+      errors: { recipeUrl: "Enter a web address, such as https://example.com/soup." },
+    });
+    expect(await submit({ ...ada, recipeText: "Simmer." })).toEqual({
+      status: "invalid",
+      errors: { soupName: "Name the soup this recipe is for." },
+    });
+    expect(await db.rsvp.count()).toBe(0);
+  });
+
+  it("ignores a recipe sent with a decline", async () => {
+    const result = await submit({
+      name: "Ada Lovelace", attendance: "declined", soupName: "Minestrone", recipeText: "Simmer.",
+    });
+
+    expect(result).toMatchObject({ status: "declined", unlistedSoup: null });
+    expect(await db.soup.count()).toBe(0);
   });
 });
 
@@ -326,7 +358,7 @@ describe("createRsvp", () => {
   it("stores the soup under its normalized name", async () => {
     const { id } = await createRsvp({
       ...ada,
-      soup: { name: "Mom’s Chicken-Noodle Soup" },
+      soup: soupNamed("Mom’s Chicken-Noodle Soup"),
     });
 
     expect(await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).toMatchObject({
@@ -337,7 +369,7 @@ describe("createRsvp", () => {
 
   it("stores no RSVP when its soup cannot be stored", async () => {
     await expect(
-      createRsvp({ ...ada, soup: { name: " " } }),
+      createRsvp({ ...ada, soup: soupNamed(" ") }),
     ).rejects.toThrow("soups_name_check");
 
     expect(await db.rsvp.count()).toBe(0);
