@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getHostOverview } from "@/lib/host-rsvps";
 import { cancelRsvp, createRsvp, updateRsvp } from "@/lib/rsvp";
 
-import { clearRsvps } from "./database";
+import { clearRsvps, soupNamed } from "./database";
 
 const host = vi.hoisted(() => ({ signedIn: true }));
 vi.mock("@/lib/host-session", () => ({
@@ -20,7 +20,9 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks());
 afterAll(async () => db.$disconnect());
 
-const minestrone = { name: "Minestrone" };
+const minestrone = soupNamed("Minestrone");
+// As the overview shows it: a soup without a recipe has no recipe page.
+const listed = { name: "Minestrone", recipePath: null };
 const alone = { secondName: null, status: "ATTENDING" as const };
 const couple = { secondName: "Charles Babbage", status: "ATTENDING" as const };
 
@@ -47,7 +49,7 @@ describe("host overview", () => {
     await createRsvp({ attendeeName: "Edsger Dijkstra", ...couple, status: "DECLINED", soup: null });
     // Declined with a soup on file: neither a soup nor an undecided soup.
     const { editToken } = await createRsvp({
-      attendeeName: "Barbara Liskov", ...couple, soup: { name: "Borscht" },
+      attendeeName: "Barbara Liskov", ...couple, soup: soupNamed("Borscht"),
     });
     await cancelRsvp(editToken);
 
@@ -57,21 +59,21 @@ describe("host overview", () => {
       .toEqual(["Ada Lovelace", "Alan Turing", "Grace Hopper"]);
     expect(overview.undecided.map(({ attendeeName }) => attendeeName)).toEqual(["Alan Turing", "Grace Hopper"]);
     expect(overview.declined.map(({ attendeeName }) => attendeeName)).toEqual(["Edsger Dijkstra", "Barbara Liskov"]);
-    expect(overview.soups).toEqual([{ ...minestrone, guests: "Ada Lovelace and Charles Babbage" }]);
+    expect(overview.soups).toEqual([{ ...listed, guests: "Ada Lovelace and Charles Babbage" }]);
   });
 
   it("shows each submission in full, including a declined guest's retained soup", async () => {
     const { id, editToken } = await createRsvp({ attendeeName: "Ada Lovelace", ...couple, soup: minestrone });
     const [rsvp] = (await getHostOverview()).attending;
     expect(rsvp).toEqual({
-      id, attendeeName: "Ada Lovelace", ...couple, partySize: 2, soup: minestrone,
+      id, attendeeName: "Ada Lovelace", ...couple, partySize: 2, soup: listed,
       createdAt: expect.any(Date), updatedAt: expect.any(Date),
     });
 
     await cancelRsvp(editToken);
     const { declined, counts } = await getHostOverview();
     expect(declined).toMatchObject([{
-      id, status: "DECLINED", secondName: "Charles Babbage", partySize: null, soup: minestrone,
+      id, status: "DECLINED", secondName: "Charles Babbage", partySize: null, soup: listed,
     }]);
     expect(counts).toEqual({ guests: 0, attending: 0, declined: 1, soups: 0, undecided: 0 });
   });
@@ -86,9 +88,9 @@ describe("host overview", () => {
   });
 
   it("lists soups alphabetically with the contributors' full names", async () => {
-    await createRsvp({ attendeeName: "Ada Lovelace", ...couple, soup: { name: "Zucchini" } });
-    await createRsvp({ attendeeName: "Grace Hopper", ...alone, soup: { name: "bean" } });
-    await createRsvp({ attendeeName: "Alan Turing", ...alone, soup: { name: "Bean" } });
+    await createRsvp({ attendeeName: "Ada Lovelace", ...couple, soup: soupNamed("Zucchini") });
+    await createRsvp({ attendeeName: "Grace Hopper", ...alone, soup: soupNamed("bean") });
+    await createRsvp({ attendeeName: "Alan Turing", ...alone, soup: soupNamed("Bean") });
 
     expect((await getHostOverview()).soups.map(({ name, guests }) => [name, guests])).toEqual([
       ["bean", "Grace Hopper"], ["Bean", "Alan Turing"], ["Zucchini", "Ada Lovelace and Charles Babbage"],
@@ -102,7 +104,7 @@ describe("host overview", () => {
     await updateRsvp(editToken, { attendeeName: "Ada King", ...couple, soup: minestrone });
     const overview = await getHostOverview();
     expect(overview.counts).toEqual({ guests: 2, attending: 1, declined: 0, soups: 1, undecided: 0 });
-    expect(overview.attending).toMatchObject([{ attendeeName: "Ada King", partySize: 2, soup: minestrone }]);
+    expect(overview.attending).toMatchObject([{ attendeeName: "Ada King", partySize: 2, soup: listed }]);
     expect(overview.attending[0].updatedAt.getTime()).toBeGreaterThan(overview.attending[0].createdAt.getTime());
   });
 

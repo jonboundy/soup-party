@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
 import { Container } from "@/components/layout/container"
@@ -36,11 +37,26 @@ async function SoupList() {
   return (
     <ul aria-label="Registered soups" className="border-t">
       {soups.map((soup, index) => (
-        <li key={index} className="border-b py-6 sm:py-8">
-          <h3 className="type-heading [overflow-wrap:anywhere]">{soup.name}</h3>
-          <p className="mt-2 text-muted-foreground [overflow-wrap:anywhere]">
-            Brought by {soup.contributorName}
-          </p>
+        <li
+          key={index}
+          className="flex items-baseline justify-between gap-6 border-b py-6 sm:py-8"
+        >
+          <div className="min-w-0">
+            <h3 className="type-heading [overflow-wrap:anywhere]">{soup.name}</h3>
+            <p className="mt-2 text-muted-foreground [overflow-wrap:anywhere]">
+              Brought by {soup.contributorName}
+            </p>
+          </div>
+          {soup.recipePath && (
+            <Link
+              href={soup.recipePath}
+              // The list's links would otherwise all read "Recipe".
+              aria-label={`Recipe for ${soup.name}`}
+              className="shrink-0 underline underline-offset-4"
+            >
+              Recipe
+            </Link>
+          )}
         </li>
       ))}
     </ul>

@@ -68,6 +68,8 @@ export async function saveHostRsvp(
     secondName: singleField(formData, "secondName"),
     attendance: singleField(formData, "attendance"),
     soupName: singleField(formData, "soupName"),
+    recipeUrl: singleField(formData, "recipeUrl"),
+    recipeText: singleField(formData, "recipeText"),
   });
   if (!parsed.success) return { status: "invalid", errors: parsed.errors };
 

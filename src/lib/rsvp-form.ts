@@ -5,9 +5,17 @@ import type { SoupMatch } from "@/lib/soup-matches";
 
 export const NAME_MAX_LENGTH = 80;
 export const SOUP_NAME_MAX_LENGTH = 80;
+export const RECIPE_URL_MAX_LENGTH = 2000;
+export const RECIPE_TEXT_MAX_LENGTH = 10000;
 
 /** The form's field names, as submitted. */
-export type RsvpField = "name" | "secondName" | "attendance" | "soupName";
+export type RsvpField =
+  | "name"
+  | "secondName"
+  | "attendance"
+  | "soupName"
+  | "recipeUrl"
+  | "recipeText";
 
 /** One message per field that needs correcting. */
 export type RsvpErrors = Partial<Record<RsvpField, string>>;
@@ -37,8 +45,8 @@ export type RsvpFormState =
       editPath: string;
     };
 
-/** A soup as the guest bringing it entered it. */
-export type GuestSoup = { name: string };
+/** A soup as the guest bringing it entered it. The recipe is optional, in either form. */
+export type GuestSoup = { name: string; recipeUrl: string | null; recipeText: string | null };
 
 /** Fields available only after the guest's private token has been verified. */
 export type EditableRsvp = {

@@ -72,6 +72,8 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
     secondName: singleField(formData, "secondName"),
     attendance: singleField(formData, "attendance"),
     soupName: singleField(formData, "soupName"),
+    recipeUrl: singleField(formData, "recipeUrl"),
+    recipeText: singleField(formData, "recipeText"),
   });
   if (!parsed.success) {
     return { status: "invalid", errors: parsed.errors };

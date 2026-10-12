@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { RecipeFields } from "@/components/recipe-fields"
 import { guestNames } from "@/lib/guest-names"
 import type { HostRsvpState } from "@/lib/host-form"
 import {
@@ -53,6 +54,12 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
     initial.status === "ATTENDING" ? "attending" : "declined"
   )
   const [soupName, setSoupName] = React.useState(initial.soup?.name ?? "")
+  // Held here, not in the fields, which leave the form while the soup has no name.
+  const [recipe, setRecipe] = React.useState({
+    url: initial.soup?.recipeUrl ?? "",
+    text: initial.soup?.recipeText ?? "",
+  })
+  const savedRecipe = !!(initial.soup?.recipeUrl || initial.soup?.recipeText)
   const [confirmRemove, setConfirmRemove] = React.useState(false)
   // Fields changed since the last response. Their errors no longer apply.
   const [corrected, setCorrected] = React.useState<RsvpField[]>([])
@@ -252,12 +259,24 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
                 </FieldError>
               ) : (
                 <FieldDescription id="host-rsvp-soup-name-description">
-                  {initial.soup
-                    ? "Clear the name to remove the soup."
-                    : "Blank while the guest is undecided."}
+                  {savedRecipe
+                    ? "Clear the name to remove the soup and its recipe."
+                    : initial.soup
+                      ? "Clear the name to remove the soup."
+                      : "Blank while the guest is undecided."}
                 </FieldDescription>
               )}
             </Field>
+          )}
+          {attendance === "attending" && soupName.trim() !== "" && (
+            <RecipeFields
+              id="host-rsvp"
+              description="Optional. A link, the recipe written out, or both. Public once saved."
+              value={recipe}
+              onChange={setRecipe}
+              errors={errors}
+              onCorrect={correct}
+            />
           )}
           {saved.status === "failed" && (
             <Alert variant="destructive">
@@ -285,7 +304,7 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
             </p>
             <p className="text-sm text-muted-foreground">
               {initial.soup
-                ? "The response and its soup will be deleted, and the guest’s private link will stop working."
+                ? `The response and its soup${savedRecipe ? ", with its recipe," : ""} will be deleted, and the guest’s private link will stop working.`
                 : "The response will be deleted, and the guest’s private link will stop working."}
               {" "}This cannot be undone.
             </p>

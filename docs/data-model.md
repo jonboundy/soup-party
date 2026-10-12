@@ -79,13 +79,17 @@ The soup a guest intends to bring. Optional: an RSVP with no soup row is a guest
 | `rsvp_id` | `uuid` | Unique. References `rsvps.id`. |
 | `name` | `text` | Required. As the guest typed it. |
 | `normalized_name` | `text` | Required. Indexed. Reduced form of `name` for duplicate detection, from `normalizeSoupName` in `src/lib/soup-name.ts`. |
+| `recipe_url` | `text` | Nullable. Where the recipe can be found. Stored as a normalized `http(s)` address. |
+| `recipe_text` | `text` | Nullable. The recipe written out. Line breaks are kept. |
 | `created_at`, `updated_at` | `timestamptz` | |
+
+A soup has a recipe when either recipe column is set. A recipe is public while its soup is active, at `/soups/<id>`, which makes the soup's `id` public for those soups. Both columns are written on every attending save, from what the form sent, so a form that leaves them out removes the recipe.
 
 ## Relations
 
 - **RSVP to soup is one to zero-or-one.** `soups.rsvp_id` is a foreign key with a unique index, so an RSVP has at most one soup. Dropping the unique index is all it takes to allow several later.
 - **A soup cannot outlive its RSVP.** The foreign key is `ON DELETE CASCADE`: deleting an RSVP deletes its soup. Only the host's removal deletes an RSVP.
-- **Declining or cancelling does not delete the soup.** Guest cancellation sets the RSVP to `DECLINED` and clears `party_size`; the saved link remains usable. Clearing the soup name while attending deletes the soup row. Other guest edits update the RSVP and soup in one transaction. A soup is *active* only while its RSVP is `ATTENDING`. Anything that lists soups publicly must filter on that:
+- **Declining or cancelling does not delete the soup.** Guest cancellation sets the RSVP to `DECLINED` and clears `party_size`; the saved link remains usable. Clearing the soup name while attending deletes the soup row, and its recipe with it. Other guest edits update the RSVP and soup in one transaction. A soup is *active* only while its RSVP is `ATTENDING`. Anything that lists soups publicly must filter on that:
 
   ```ts
   db.soup.findMany({ where: { rsvp: { status: "ATTENDING" } } });
@@ -106,6 +110,8 @@ The soup a guest intends to bring. Optional: an RSVP with no soup row is a guest
 | `soups_rsvp_id_key` | `soups` | One soup per RSVP. |
 | `soups_rsvp_id_fkey` | `soups` | `rsvp_id` references an RSVP; cascades on delete. |
 | `soups_name_check` | `soups` | `name` is not blank. |
+| `soups_recipe_url_check` | `soups` | `recipe_url`, when set, starts with `http://` or `https://` and has no spaces. |
+| `soups_recipe_text_check` | `soups` | `recipe_text`, when set, is not blank. |
 
 `normalized_name` is deliberately **not** unique. Similar soups produce a warning, never a rejection.
 
