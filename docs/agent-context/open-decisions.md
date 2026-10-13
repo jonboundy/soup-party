@@ -2,9 +2,11 @@
 
 PRD §11 listed these as open on 2026-10-10 (it still lists the settled ones below). Check the PRD ([prd and jira links](prd-and-jira-links.md)) or ask Jon before building anything that depends on one; update or delete this memory as they get settled.
 
-- Exact November 2026 event date, time, physical location, and serving instructions.
+- The event's physical location and serving instructions.
 - Whether guests can RSVP without a soup indefinitely.
 - Whether the RSVP edit link is only displayed on screen or also emailed. Email delivery is not assumed for v1.0 (so no email field is required by the v1.0 data model).
+
+**Settled:** date and time — on 2026-10-12 Jon gave Saturday, November 21, 2026 at 3:00 PM. He did not name a time zone; `America/New_York`, his Mac's, is assumed and unconfirmed. This is not in the code: it is set on the `events` row of each database, as [the data model](../data-model.md) describes.
 
 **Settled:** public contributor names — Jon chose first names only during SP-15. The RSVP form explains this; the public query derives the first whitespace-delimited part of the RSVP name on the server.
 

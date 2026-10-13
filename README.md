@@ -139,7 +139,7 @@ The hero's bowl (`src/components/home/alphabet-soup.tsx`) is tomato alphabet sou
 - **Markup.** Two stacked SVGs: the bowl, and the letters as text in the site's typeface on a layer of their own, so moving them does not repaint the bowl. Together they are one image named “A bowl of alphabet soup.” The letters spell nothing and are not read out.
 - **Letters.** The whole alphabet, a second set of the letters in SOUP PARTY, and a few more vowels. `layoutSoupLetters` scatters them from a seed with integer arithmetic only, so the server and every browser agree on where they start.
 
-The bowl sits beside the hero text from the `lg` breakpoint and below the call to action on smaller screens. Its colours are the `--soup-*` tokens in `src/app/globals.css`.
+The bowl sits beside the hero text from the `lg` breakpoint, above the date, time and location, and below them on smaller screens. From `lg` it narrows on a short window so that those stay in view. Its colours are the `--soup-*` tokens in `src/app/globals.css`.
 
 ## Soup cascade
 

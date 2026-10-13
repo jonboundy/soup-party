@@ -172,7 +172,7 @@ SET starts_at = '2026-11-14 18:00 America/New_York',
 WHERE id = 1;
 ```
 
-The homepage's details section reads this row and shows the change within about a minute; no deploy is needed. Every column is optional. One that is null or blank is shown as "To be announced." rather than guessed at, and setting a column back to `NULL` restores that.
+The homepage reads this row, for the date, time and location in its hero and the instructions under it, and shows the change within about a minute; no deploy is needed. Every column is optional. One that is null or blank is shown as "To be announced." rather than guessed at, and setting a column back to `NULL` restores that.
 
 - The date and time both come from `starts_at`, displayed in `time_zone`. If `time_zone` is not a zone name the server recognizes, neither is shown.
 - `map_url` adds a "Map and directions" link under the location.

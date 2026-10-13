@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { SoupLinkLabel } from "@/components/layout/soup-link-label"
 
 // The header cannot fit every link beside the wordmark below 360px, so the
-// narrowest screens drop Details, the first section a guest scrolls to anyway.
+// narrowest screens drop Details, which there sits right under the hero's text.
 const links = [
   { href: "/#details", label: "Details", className: "max-[359px]:hidden" },
   { href: "/#soups", label: "Soups" },
