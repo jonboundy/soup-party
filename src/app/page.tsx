@@ -1,6 +1,5 @@
-import { EventDetails } from "@/components/home/event-details";
+import { Instructions } from "@/components/home/event-details";
 import { Hero } from "@/components/home/hero";
-import { Premise } from "@/components/home/premise";
 import { Rsvp } from "@/components/home/rsvp";
 import { SoupCascade } from "@/components/home/soup-cascade";
 import { SoupRegistry } from "@/components/home/soup-registry";
@@ -10,8 +9,7 @@ export default function Home() {
     <>
       <SoupCascade />
       <Hero />
-      <Premise />
-      <EventDetails />
+      <Instructions />
       <SoupRegistry />
       <Rsvp />
     </>
