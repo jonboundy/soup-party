@@ -55,14 +55,10 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   const blocked = await checkSubmission(formData);
   if (blocked) return blocked;
 
-  let unlistedSoup: string | null = null;
   if (editToken) {
     try {
       const { getEditableRsvp } = await import("@/lib/rsvp");
-      const saved = await getEditableRsvp(editToken);
-      if (!saved) return { status: "unauthorized" };
-      // A decline leaves the soup with the RSVP, so it is still there to report.
-      unlistedSoup = saved.soup?.name ?? null;
+      if (!(await getEditableRsvp(editToken))) return { status: "unauthorized" };
     } catch {
       return { status: "failed" };
     }
@@ -71,7 +67,9 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   const parsed = parseRsvp({
     name: singleField(formData, "name"),
     secondName: singleField(formData, "secondName"),
-    attendance: singleField(formData, "attendance"),
+    // Guests are not asked: a response is from someone coming. One who cannot
+    // come after all cancels, and saving again from the edit link returns them.
+    attendance: "attending",
     soupName: singleField(formData, "soupName"),
     recipeUrl: singleField(formData, "recipeUrl"),
     recipeText: singleField(formData, "recipeText"),
@@ -115,16 +113,14 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
     return { status: "failed" };
   }
 
-  const { attendeeName: name, secondName, status, soup } = parsed.data;
+  const { attendeeName: name, secondName, soup } = parsed.data;
   // Edits may remove a soup or change its public contributor name.
   if (soup || editing) {
     updateTag("soups");
     refresh();
   }
   const editPath = `/rsvp/edit?token=${editToken}`;
-  return status === "DECLINED"
-    ? { status: "declined", name, secondName, unlistedSoup, editPath }
-    : { status: "attending", name, secondName, soup, editPath };
+  return { status: "attending", name, secondName, soup, editPath };
 }
 
 function singleField(formData: FormData, field: string) {

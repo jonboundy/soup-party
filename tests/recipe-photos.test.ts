@@ -182,15 +182,12 @@ describe("recipe photos", () => {
       expect((await serve(soup, photo)).status).toBe(404);
     }
 
-    // Declined or cancelled, the photos are kept but have no address.
-    expect(await edit({ attendance: "declined" })).toMatchObject({ status: "declined" });
-    expect((await serve(soupId, photoId)).status).toBe(404);
-    expect(await getPublicRecipe(soupId)).toBeNull();
-    expect(await getEditablePhotos(editToken)).toEqual([{ id: photoId, src: null }]);
-    expect(await edit()).toMatchObject({ status: "attending" });
+    // Cancelled, the photos are kept but have no address.
     expect(await cancelGuestRsvp({ status: "idle" }, photoForm({ editToken, confirmCancel: "yes" })))
       .toMatchObject({ status: "cancelled" });
     expect((await serve(soupId, photoId)).status).toBe(404);
+    expect(await getPublicRecipe(soupId)).toBeNull();
+    expect(await getEditablePhotos(editToken)).toEqual([{ id: photoId, src: null }]);
     expect(await edit()).toMatchObject({ status: "attending" });
     expect((await serve(soupId, photoId)).status).toBe(200);
     expect((await getPublicRecipe(soupId))!.photos).toMatchObject([{ id: photoId }]);

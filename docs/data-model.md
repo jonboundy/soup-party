@@ -105,7 +105,7 @@ A photo is never changed, only added or removed, so there is no `updated_at`. Se
 - **RSVP to soup is one to zero-or-one.** `soups.rsvp_id` is a foreign key with a unique index, so an RSVP has at most one soup. Dropping the unique index is all it takes to allow several later.
 - **A soup cannot outlive its RSVP.** The foreign key is `ON DELETE CASCADE`: deleting an RSVP deletes its soup. Only the host's removal deletes an RSVP.
 - **Soup to recipe photo is one to at most three.** `recipe_photos.soup_id` cascades on delete, so photos go with their soup, and so with its RSVP. The unique index on `(soup_id, position)` and the range of `position` together hold a soup to three.
-- **Declining or cancelling does not delete the soup.** Guest cancellation sets the RSVP to `DECLINED` and clears `party_size`; the saved link remains usable. Clearing the soup name while attending deletes the soup row, and its recipe with it. Other guest edits update the RSVP and soup in one transaction. A soup is *active* only while its RSVP is `ATTENDING`. Anything that lists soups publicly must filter on that:
+- **Cancelling does not delete the soup.** Guests are not asked whether they are coming, so a guest's response is always written as `ATTENDING`. Guest cancellation sets the RSVP to `DECLINED` and clears `party_size`; the saved link remains usable, and saving from it sets `ATTENDING` again. The host's editor can set either status. Clearing the soup name while attending deletes the soup row, and its recipe with it. Other guest edits update the RSVP and soup in one transaction. A soup is *active* only while its RSVP is `ATTENDING`. Anything that lists soups publicly must filter on that:
 
   ```ts
   db.soup.findMany({ where: { rsvp: { status: "ATTENDING" } } });

@@ -20,11 +20,8 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldLegend,
-  FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   recipePhotoDraft,
   syncRecipePhotos,
@@ -96,9 +93,8 @@ function RsvpForm({
     RsvpFormState,
     FormData
   >((previous, data) => submit(previous, data, editing, photos), { status: "idle" })
-  const [attendance, setAttendance] = React.useState(
-    initial ? initial.status === "ATTENDING" ? "attending" : "declined" : ""
-  )
+  // A cancelled RSVP keeps its answers. Saving them again restores it.
+  const cancelled = initial?.status === "DECLINED"
   const [soupName, setSoupName] = React.useState(initial?.soup?.name ?? "")
   // Held here, not in the fields: they leave the form while the soup has no
   // name, and what was typed in them should be there when they return.
@@ -149,7 +145,7 @@ function RsvpForm({
     if (state.status === "unauthorized") outcome.current?.focus()
   }, [state])
 
-  if (state.status === "attending" || state.status === "declined" || state.status === "cancelled") {
+  if (state.status === "attending" || state.status === "cancelled") {
     return <RsvpConfirmation state={state} editing={editing} />
   }
 
@@ -178,7 +174,6 @@ function RsvpForm({
 
   const warning =
     state.status === "duplicate" &&
-    attendance === "attending" &&
     soupName.trim().replace(/\s+/g, " ") === state.soupName
       ? state
       : null
@@ -211,6 +206,12 @@ function RsvpForm({
         <input id="rsvp-website" name="website" tabIndex={-1} autoComplete="off" />
       </div>
       <FieldGroup className="gap-7">
+        {cancelled && (
+          <Alert>
+            <AlertTitle>This RSVP is cancelled.</AlertTitle>
+            <AlertDescription>Save it to return to the list.</AlertDescription>
+          </Alert>
+        )}
         <Field data-invalid={!!errors.name}>
           <FieldLabel htmlFor="rsvp-name">Name</FieldLabel>
           <Input
@@ -262,85 +263,38 @@ function RsvpForm({
             </FieldDescription>
           )}
         </Field>
-        <FieldSet data-invalid={!!errors.attendance}>
-          <FieldLegend id="rsvp-attendance-legend" variant="label">
-            Attendance
-          </FieldLegend>
-          <RadioGroup
-            name="attendance"
-            value={attendance}
-            onValueChange={(value) => {
-              setAttendance(value)
-              correct("attendance")
+        <Field data-invalid={!!errors.soupName}>
+          <FieldLabel htmlFor="rsvp-soup-name">Soup</FieldLabel>
+          <Input
+            id="rsvp-soup-name"
+            name="soupName"
+            autoComplete="off"
+            maxLength={SOUP_NAME_MAX_LENGTH}
+            value={soupName}
+            onChange={(event) => {
+              setSoupName(event.target.value)
+              correct("soupName")
             }}
-            required
-            aria-labelledby="rsvp-attendance-legend"
+            aria-invalid={!!errors.soupName}
             aria-describedby={
-              errors.attendance ? "rsvp-attendance-error" : undefined
+              errors.soupName
+                ? "rsvp-soup-name-error"
+                : "rsvp-soup-name-description"
             }
-          >
-            <Field orientation="horizontal">
-              <RadioGroupItem
-                value="attending"
-                id="rsvp-attending"
-                aria-invalid={!!errors.attendance}
-              />
-              <FieldLabel htmlFor="rsvp-attending" className="font-normal">
-                I&apos;ll be there
-              </FieldLabel>
-            </Field>
-            <Field orientation="horizontal">
-              <RadioGroupItem
-                value="declined"
-                id="rsvp-declined"
-                aria-invalid={!!errors.attendance}
-              />
-              <FieldLabel htmlFor="rsvp-declined" className="font-normal">
-                I can&apos;t make it
-              </FieldLabel>
-            </Field>
-          </RadioGroup>
-          {errors.attendance && (
-            <FieldError id="rsvp-attendance-error">
-              {errors.attendance}
+          />
+          {errors.soupName ? (
+            <FieldError id="rsvp-soup-name-error">
+              {errors.soupName}
             </FieldError>
+          ) : (
+            <FieldDescription id="rsvp-soup-name-description">
+              {savedRecipe
+                ? "Leaving this blank removes the soup and its recipe."
+                : "Leave blank to decide later."}
+            </FieldDescription>
           )}
-        </FieldSet>
-        {attendance === "attending" && (
-          <Field data-invalid={!!errors.soupName}>
-            <FieldLabel htmlFor="rsvp-soup-name">Soup</FieldLabel>
-            <Input
-              id="rsvp-soup-name"
-              name="soupName"
-              autoComplete="off"
-              maxLength={SOUP_NAME_MAX_LENGTH}
-              value={soupName}
-              onChange={(event) => {
-                setSoupName(event.target.value)
-                correct("soupName")
-              }}
-              aria-invalid={!!errors.soupName}
-              aria-describedby={
-                errors.soupName
-                  ? "rsvp-soup-name-error"
-                  : "rsvp-soup-name-description"
-              }
-            />
-            {errors.soupName ? (
-              <FieldError id="rsvp-soup-name-error">
-                {errors.soupName}
-              </FieldError>
-            ) : (
-              <FieldDescription id="rsvp-soup-name-description">
-                {savedRecipe
-                  ? "Leaving this blank removes the soup and its recipe."
-                  : "Leave blank to decide later."}
-              </FieldDescription>
-            )}
-          </Field>
-        )}
-        {attendance === "attending" &&
-          soupName.trim() !== "" &&
+        </Field>
+        {soupName.trim() !== "" &&
           // An error in a field brings the fields with it.
           (recipeOpen || errors.recipeUrl || errors.recipeText ? (
             <RecipeFields
@@ -434,13 +388,13 @@ function RsvpForm({
               ? "Saving"
               : warning
                 ? "Register this soup anyway"
-                : editing ? "Save changes" : "RSVP"}
+                : editing && !cancelled ? "Save changes" : "RSVP"}
           </Button>
         </div>
-        {editing && <div className="flex flex-col gap-3 border-t pt-7">
+        {editing && !cancelled && <div className="flex flex-col gap-3 border-t pt-7">
           {confirmCancel ? <>
             <p className="font-medium">Cancel your RSVP?</p>
-            <p className="text-sm text-muted-foreground">You’ll be removed from the attending list and your soup will be released. You can return using this link.</p>
+            <p className="text-sm text-muted-foreground">You’ll be removed from the list and your soup will be released. You can return using this link.</p>
             <div className="flex flex-wrap gap-3">
               <Button id="rsvp-confirm-cancel" type="button" variant="destructive" disabled={pending} onClick={() => {
                 const data = new FormData()

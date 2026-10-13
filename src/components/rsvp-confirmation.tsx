@@ -47,9 +47,7 @@ function RsvpConfirmation({
             ? "Your RSVP has been cancelled."
             : editing
               ? "Your RSVP has been updated."
-              : state.status === "attending"
-                ? "You’re on the list."
-                : "Your regrets have been recorded."}
+              : "You’re on the list."}
         </Title>
         {state.status === "attending" && state.soup && (
           <p className="type-lead text-muted-foreground">
@@ -61,9 +59,6 @@ function RsvpConfirmation({
         <Entry term={state.secondName ? "Names" : "Name"}>
           <p>{state.name}</p>
           {state.secondName && <p>{state.secondName}</p>}
-        </Entry>
-        <Entry term="Response">
-          {state.status === "attending" ? "Attending" : "Not attending"}
         </Entry>
         {state.status === "attending" ? (
           <Entry term="Soup">

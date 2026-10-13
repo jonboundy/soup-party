@@ -74,10 +74,10 @@ describe("submission protection", () => {
     expect((await db.rsvp.findUniqueOrThrow({ where: { id } })).submissionHash).toBe(before);
   });
 
-  it("deduplicates simultaneous declines without storing the submitted soup", async () => {
-    const data = form(undefined, { attendance: "declined" });
+  it("deduplicates simultaneous responses without a soup", async () => {
+    const data = form(undefined, { soupName: "" });
     const results = await Promise.all([submit(data), submit(data), submit(data)]);
-    expect(results[0]).toMatchObject({ status: "declined" });
+    expect(results[0]).toMatchObject({ status: "attending", soup: null });
     for (const result of results) expect(result).toEqual(results[0]);
     expect(await db.rsvp.count()).toBe(1);
     expect(await db.soup.count()).toBe(0);
