@@ -11,15 +11,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function Response({ params }: PageProps<"/host/rsvps/[id]">) {
+async function Response({ params, searchParams }: PageProps<"/host/rsvps/[id]">) {
   const { id } = await params;
+  // Set by the save that brought the host back here, when it could not make
+  // every change to the photos. Only a small count is believed.
+  const unsaved = Number((await searchParams).unsaved);
   // Without a database there are no sessions, so nobody is the host.
   if (!process.env.DATABASE_URL) redirect("/host");
-  let rsvp;
+  let rsvp, photos;
   try {
     // Sends anyone but the signed-in host to the sign-in form.
-    const { getHostRsvp } = await import("@/lib/host-rsvps");
-    rsvp = await getHostRsvp(id);
+    const { getHostRsvp, listHostRecipePhotos } = await import("@/lib/host-rsvps");
+    [rsvp, photos] = await Promise.all([getHostRsvp(id), listHostRecipePhotos(id)]);
   } catch (error) {
     unstable_rethrow(error);
     // Database errors may quote guests' details; log only their kind.
@@ -38,7 +41,13 @@ async function Response({ params }: PageProps<"/host/rsvps/[id]">) {
   }
   // Keyed on the answers: a page the browser kept from an earlier visit must
   // not put what it held then back into the form.
-  return <HostRsvpEditor key={JSON.stringify(rsvp)} id={id} initial={rsvp} />;
+  return <HostRsvpEditor
+    key={JSON.stringify([rsvp, photos])}
+    id={id}
+    initial={rsvp}
+    savedPhotos={photos}
+    unsavedPhotos={Number.isInteger(unsaved) && unsaved > 0 && unsaved < 10 ? unsaved : 0}
+  />;
 }
 
 export default function HostRsvpPage(props: PageProps<"/host/rsvps/[id]">) {

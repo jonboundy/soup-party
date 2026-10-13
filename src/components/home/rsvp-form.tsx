@@ -3,7 +3,13 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { cancelGuestRsvp, editRsvp, submitRsvp } from "@/app/actions"
+import {
+  addRecipePhoto,
+  cancelGuestRsvp,
+  editRsvp,
+  removeRecipePhoto,
+  submitRsvp,
+} from "@/app/actions"
 import { RecipeFields } from "@/components/recipe-fields"
 import { RsvpConfirmation } from "@/components/rsvp-confirmation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -20,6 +26,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
+  recipePhotoDraft,
+  syncRecipePhotos,
+  type RecipePhotoDraft,
+  type RecipePhotoRef,
+} from "@/lib/recipe-photo"
+import {
   NAME_MAX_LENGTH,
   SOUP_NAME_MAX_LENGTH,
   type RsvpErrors,
@@ -35,12 +47,31 @@ async function submit(
   previous: RsvpFormState,
   formData: FormData,
   editing: boolean,
+  photos: RecipePhotoDraft,
 ): Promise<RsvpFormState> {
   try {
     if (editing && formData.get("confirmCancel") === "yes") {
       return await cancelGuestRsvp(previous, formData)
     }
-    return await (editing ? editRsvp : submitRsvp)(previous, formData)
+    const state = await (editing ? editRsvp : submitRsvp)(previous, formData)
+    // Photos belong to a saved soup, so they are sent once there is one,
+    // each in a request of its own. A new RSVP's token is by now its link.
+    if (state.status !== "attending" || !state.soup) return state
+    const editToken = formData.get(editing ? "editToken" : "submissionToken") as string
+    const request = (field: string, value: string | Blob) => {
+      const data = new FormData()
+      data.set("editToken", editToken)
+      data.set(field, value)
+      return data
+    }
+    const sent = await syncRecipePhotos(photos, {
+      add: (photo) => addRecipePhoto(request("photo", photo)),
+      remove: (id) => removeRecipePhoto(request("photoId", id)),
+    })
+    return {
+      ...state,
+      photos: { saved: sent.saved.length, unsaved: sent.added.length + sent.removed.length },
+    }
   } catch {
     return { status: "failed" }
   }
@@ -48,18 +79,23 @@ async function submit(
 
 function RsvpForm({
   initial,
+  savedPhotos = [],
   editToken,
   submissionToken,
 }: {
   initial?: EditableRsvp
+  /** The photos the saved recipe has, when editing. */
+  savedPhotos?: RecipePhotoRef[]
   editToken?: string
   submissionToken?: string
 }) {
   const editing = !!editToken
+  // Chosen photos wait here, as the other answers wait in their fields.
+  const [photos, setPhotos] = React.useState(() => recipePhotoDraft(savedPhotos))
   const [state, formAction, pending] = React.useActionState<
     RsvpFormState,
     FormData
-  >((previous, data) => submit(previous, data, editing), { status: "idle" })
+  >((previous, data) => submit(previous, data, editing, photos), { status: "idle" })
   const [attendance, setAttendance] = React.useState(
     initial ? initial.status === "ATTENDING" ? "attending" : "declined" : ""
   )
@@ -70,7 +106,11 @@ function RsvpForm({
     url: initial?.soup?.recipeUrl ?? "",
     text: initial?.soup?.recipeText ?? "",
   })
-  const savedRecipe = !!(initial?.soup?.recipeUrl || initial?.soup?.recipeText)
+  const savedRecipe = !!(
+    initial?.soup?.recipeUrl ||
+    initial?.soup?.recipeText ||
+    savedPhotos.length
+  )
   const [recipeOpen, setRecipeOpen] = React.useState(savedRecipe)
   // Set by the button that opens the recipe fields, so focus follows it
   // there and nowhere else puts it there.
@@ -305,9 +345,12 @@ function RsvpForm({
           (recipeOpen || errors.recipeUrl || errors.recipeText ? (
             <RecipeFields
               id="rsvp"
-              description="Optional. A link, the recipe written out, or both. Anyone can read it."
+              description="Optional. A link, the recipe written out, photos of it, or any of them. Anyone can read it."
               value={recipe}
               onChange={setRecipe}
+              photos={photos}
+              setPhotos={setPhotos}
+              disabled={pending}
               errors={errors}
               onCorrect={correct}
             />
@@ -386,7 +429,7 @@ function RsvpForm({
               Choose another soup
             </Button>
           )}
-          <Button type="submit" size="lg" disabled={pending}>
+          <Button type="submit" size="lg" disabled={pending || photos.preparing}>
             {pending
               ? "Saving"
               : warning

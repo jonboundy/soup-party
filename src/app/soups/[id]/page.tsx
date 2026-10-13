@@ -60,6 +60,28 @@ async function Recipe({ params }: PageProps<"/soups/[id]">) {
         <p key={index} className="whitespace-pre-line">{paragraph}</p>
       ))}
     </div>}
+    {recipe.photos.length > 0 && <ul className="space-y-6">
+      {recipe.photos.map((photo, index) => (
+        <li key={photo.id}>
+          {/* Opens the photo on its own, to be zoomed into. */}
+          <a href={photo.src} className="block rounded-lg">
+            {/* Already shrunk to the size it is shown at, so there is nothing for the image optimizer to do. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photo.src}
+              width={photo.width}
+              height={photo.height}
+              // What a photo of a page says cannot be known here, only what it is of.
+              alt={recipe.photos.length === 1
+                ? `Photo of the recipe for ${recipe.name}`
+                : `Photo ${index + 1} of ${recipe.photos.length} of the recipe for ${recipe.name}`}
+              loading={index ? "lazy" : undefined}
+              className="h-auto w-full rounded-lg border bg-card"
+            />
+          </a>
+        </li>
+      ))}
+    </ul>}
     <Link href="/#soups" className="inline-block underline underline-offset-4">Back to the soups</Link>
   </article>;
 }

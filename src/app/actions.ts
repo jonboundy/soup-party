@@ -4,6 +4,7 @@ import { refresh, updateTag } from "next/cache";
 
 import { hashEditToken, isEditToken } from "@/lib/edit-token";
 import { readPublicSoups } from "@/lib/public-soups";
+import type { RecipePhotoState } from "@/lib/recipe-photo";
 import type { RsvpFormState } from "@/lib/rsvp-form";
 import { parseRsvp } from "@/lib/rsvp-schema";
 import { findSoupMatches } from "@/lib/soup-matches";
@@ -160,4 +161,57 @@ export async function cancelGuestRsvp(
     unlistedSoup: saved.soup?.name ?? null,
     editPath: `/rsvp/edit?token=${editToken}`,
   };
+}
+
+/**
+ * Adds one photo to the recipe of the soup behind a private edit link. The
+ * form sends each photo on its own, after the response is saved: a photo is
+ * most of what one request may carry, and a response is never held up by one.
+ */
+export async function addRecipePhoto(formData: FormData): Promise<RecipePhotoState> {
+  return changeRecipePhotos(formData, async (owner) => {
+    const { uploadedPhoto } = await import("@/lib/recipe-photo-upload");
+    const photo = await uploadedPhoto(formData);
+    if (!photo) return { status: "invalid" };
+    const { addRecipePhoto } = await import("@/lib/recipe-photos");
+    return addRecipePhoto(owner, photo);
+  });
+}
+
+/** Removes one photo from that recipe. Removing it twice is not an error. */
+export async function removeRecipePhoto(formData: FormData): Promise<RecipePhotoState> {
+  return changeRecipePhotos(formData, async (owner) => {
+    const { removeRecipePhoto } = await import("@/lib/recipe-photos");
+    await removeRecipePhoto(owner, formData.get("photoId"));
+    return { status: "removed" };
+  });
+}
+
+// The token is checked as an edit's is. Attempts are counted apart from them.
+async function changeRecipePhotos(
+  formData: FormData,
+  change: (owner: { editTokenHash: string }) => Promise<RecipePhotoState>,
+): Promise<RecipePhotoState> {
+  const editToken = formData instanceof FormData ? formData.get("editToken") : null;
+  if (!isEditToken(editToken)) return { status: "unauthorized" };
+  if (!process.env.DATABASE_URL) return { status: "failed" };
+
+  let result: RecipePhotoState;
+  try {
+    const { checkRecipePhotoRateLimit } = await import("@/lib/rsvp-rate-limit");
+    if (await checkRecipePhotoRateLimit()) return { status: "rate-limited" };
+    const { getEditableRsvp } = await import("@/lib/rsvp");
+    if (!(await getEditableRsvp(editToken))) return { status: "unauthorized" };
+    result = await change({ editTokenHash: hashEditToken(editToken) });
+  } catch (error) {
+    // Only the kind of error is logged, as for a response.
+    console.error("Recipe photo could not be changed:", error instanceof Error ? error.name : typeof error);
+    return { status: "failed" };
+  }
+  // A photo can be the whole recipe, so it can add or remove the registry's link.
+  if (result.status === "saved" || result.status === "removed") {
+    updateTag("soups");
+    refresh();
+  }
+  return result;
 }

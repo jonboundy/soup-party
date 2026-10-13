@@ -99,7 +99,7 @@ describe("public recipes", () => {
     const rsvp = await db.rsvp.findUniqueOrThrow({ where: { id } });
     const page = await getPublicRecipe(soupId);
 
-    expect(page).toEqual({ name: "Minestrone", contributorName: "Ada and Charles", ...recipe });
+    expect(page).toEqual({ name: "Minestrone", contributorName: "Ada and Charles", ...recipe, photos: [] });
     for (const privateValue of [id, editToken, rsvp.editTokenHash, rsvp.submissionHash!, "Lovelace", "Babbage"]) {
       expect(JSON.stringify(page)).not.toContain(privateValue);
     }

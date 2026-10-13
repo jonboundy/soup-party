@@ -3,6 +3,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { publicGuestNames } from "@/lib/guest-names";
+import { isUuid } from "@/lib/uuid";
 
 /** Only deliberate public fields leave this function. */
 export async function getPublicSoups() {
@@ -32,27 +33,23 @@ export async function readPublicSoups(excludeEditTokenHash?: string) {
       name: true,
       recipeUrl: true,
       recipeText: true,
+      _count: { select: { photos: true } },
       rsvp: { select: { attendeeName: true, secondName: true } },
     },
   });
 
-  return soups.map(({ id, name, recipeUrl, recipeText, rsvp }) => ({
+  return soups.map(({ id, name, recipeUrl, recipeText, _count, rsvp }) => ({
     name,
     contributorName: publicGuestNames(rsvp),
     // A soup's id is public only as the address of its recipe.
-    recipePath: recipeUrl || recipeText ? `/soups/${id}` : null,
+    recipePath: recipeUrl || recipeText || _count.photos ? `/soups/${id}` : null,
   }));
-}
-
-// Anything else is not a soup id, and PostgreSQL would reject it as an error.
-function isSoupId(id: unknown): id is string {
-  return typeof id === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id);
 }
 
 /** A soup's recipe page, or null when there is nothing public to show at that address. */
 export async function getPublicRecipe(id: unknown) {
   // Checked first, so that only a possible id is ever a cache entry.
-  return isSoupId(id) ? cachedPublicRecipe(id) : null;
+  return isUuid(id) ? cachedPublicRecipe(id) : null;
 }
 
 async function cachedPublicRecipe(id: string) {
@@ -70,24 +67,30 @@ async function cachedPublicRecipe(id: string) {
  */
 export async function readPublicRecipe(id: unknown) {
   // Previews have no database, and so no recipes.
-  if (!process.env.DATABASE_URL || !isSoupId(id)) return null;
+  if (!process.env.DATABASE_URL || !isUuid(id)) return null;
 
   const { db } = await import("@/lib/db");
   const soup = await db.soup.findFirst({
     where: {
       id,
       rsvp: { status: "ATTENDING" },
-      OR: [{ recipeUrl: { not: null } }, { recipeText: { not: null } }],
+      OR: [{ recipeUrl: { not: null } }, { recipeText: { not: null } }, { photos: { some: {} } }],
     },
     select: {
       name: true,
       recipeUrl: true,
       recipeText: true,
+      // Never the bytes: the photo route serves those, one photo to a request.
+      photos: { orderBy: { position: "asc" }, select: { id: true, width: true, height: true } },
       rsvp: { select: { attendeeName: true, secondName: true } },
     },
   });
   if (!soup) return null;
 
-  const { rsvp, ...recipe } = soup;
-  return { ...recipe, contributorName: publicGuestNames(rsvp) };
+  const { rsvp, photos, ...recipe } = soup;
+  return {
+    ...recipe,
+    contributorName: publicGuestNames(rsvp),
+    photos: photos.map((photo) => ({ ...photo, src: `/soups/${id}/photos/${photo.id}` })),
+  };
 }
