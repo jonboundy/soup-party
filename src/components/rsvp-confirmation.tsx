@@ -86,7 +86,7 @@ function RsvpConfirmation({
         )}
         {state.status === "attending" && state.soup && (
           <Entry term="Recipe">
-            {state.soup.recipeUrl || state.soup.recipeText ? (
+            {state.soup.recipeUrl || state.soup.recipeText || state.photos?.saved ? (
               <>
                 <p>Provided.</p>
                 <Note>Anyone can read it from the soup list.</Note>
@@ -96,6 +96,15 @@ function RsvpConfirmation({
                 <p>Not provided.</p>
                 <Note>Add one at any time with your private edit link.</Note>
               </>
+            )}
+            {!!state.photos?.unsaved && (
+              // The response is saved all the same. Only the photos are not.
+              <p role="alert" className="text-sm text-destructive">
+                {state.photos.unsaved === 1
+                  ? "One change to the photos could not be saved."
+                  : `${state.photos.unsaved} changes to the photos could not be saved.`}{" "}
+                Make {state.photos.unsaved === 1 ? "it" : "them"} again with your private edit link.
+              </p>
             )}
           </Entry>
         )}

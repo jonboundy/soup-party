@@ -75,10 +75,31 @@ model Soup {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  rsvp Rsvp @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  rsvp   Rsvp          @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  photos RecipePhoto[]
 
   @@index([normalizedName])
   @@map("soups")
+}
+
+/// A photo of a soup's recipe: a cookbook page, or a handwritten card. Part
+/// of the recipe, and public with it. At most three per soup.
+model RecipePhoto {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  soupId    String   @map("soup_id") @db.Uuid
+  /// Order on the recipe page, 0 to 2. Unique within a soup, which is what
+  /// holds a soup to three photos.
+  position  Int      @db.SmallInt
+  /// A JPEG, shrunk by the browser and stripped of metadata by the server.
+  bytes     Bytes
+  width     Int
+  height    Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  soup Soup @relation(fields: [soupId], references: [id], onDelete: Cascade)
+
+  @@unique([soupId, position])
+  @@map("recipe_photos")
 }
 
 /// Shared fixed-window abuse control. Keys are hashes, never raw addresses.

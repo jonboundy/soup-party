@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 export const RSVP_RATE_WINDOW_SECONDS = 600;
 export const RSVP_RATE_LIMIT = 30;
 export const HOST_SIGN_IN_RATE_LIMIT = 10;
+export const RECIPE_PHOTO_RATE_LIMIT = 60;
 
 /** Only Vercel's overwritten header is trusted. Other deployments share a bucket. */
 export function rateLimitIdentity(requestHeaders: Pick<Headers, "get">) {
@@ -44,6 +45,19 @@ export async function consumeRsvpAttempt(identity: string) {
 
 export async function checkRsvpRateLimit() {
   return consumeRsvpAttempt(rateLimitIdentity(await headers()));
+}
+
+/**
+ * Photos spend a budget of their own. One save can send six requests for
+ * them, and guests at the party share an address: counted with responses,
+ * a few recipes would stop anyone there from changing an RSVP.
+ */
+export async function consumeRecipePhotoAttempt(identity: string) {
+  return consumeAttempt(`recipe-photo:${identity}`, identity === "shared" ? 200 : RECIPE_PHOTO_RATE_LIMIT);
+}
+
+export async function checkRecipePhotoRateLimit() {
+  return consumeRecipePhotoAttempt(rateLimitIdentity(await headers()));
 }
 
 /** Password guesses spend their own, smaller budget, apart from RSVP traffic. */

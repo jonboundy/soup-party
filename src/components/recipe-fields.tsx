@@ -10,16 +10,19 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field"
+import { RecipePhotoField } from "@/components/recipe-photos"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import type { RecipePhotoDraft } from "@/lib/recipe-photo"
 import type { RsvpErrors, RsvpField } from "@/lib/rsvp-form"
 
 /** What has been typed into the recipe fields, which may both be blank. */
 type RecipeDraft = { url: string; text: string }
 
 /**
- * A soup's optional recipe: a link, the recipe written out, or both. The
- * guest's form and the host's share it; `id` keeps their fields apart.
+ * A soup's optional recipe: a link, the recipe written out, photos of it, or
+ * any of them together. The guest's form and the host's share it; `id` keeps
+ * their fields apart.
  *
  * Neither field has a `maxLength`, which would cut a pasted recipe short
  * without saying so. The action reports one that is too long.
@@ -29,6 +32,9 @@ function RecipeFields({
   description,
   value,
   onChange,
+  photos,
+  setPhotos,
+  disabled,
   errors,
   onCorrect,
 }: {
@@ -36,6 +42,10 @@ function RecipeFields({
   description: string
   value: RecipeDraft
   onChange: (value: RecipeDraft) => void
+  photos: RecipePhotoDraft
+  setPhotos: React.Dispatch<React.SetStateAction<RecipePhotoDraft>>
+  /** While the form is being saved. */
+  disabled: boolean
   errors: RsvpErrors
   onCorrect: (field: RsvpField) => void
 }) {
@@ -86,6 +96,7 @@ function RecipeFields({
           <FieldError id={`${id}-recipe-text-error`}>{errors.recipeText}</FieldError>
         )}
       </Field>
+      <RecipePhotoField id={id} draft={photos} setDraft={setPhotos} disabled={disabled} />
     </FieldSet>
   )
 }

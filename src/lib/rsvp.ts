@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { createEditToken, hashEditToken, isEditToken } from "@/lib/edit-token";
+import { listRecipePhotos } from "@/lib/recipe-photos";
 import type { RsvpInput } from "@/lib/rsvp-schema";
 import { normalizeSoupName } from "@/lib/soup-name";
 
@@ -87,6 +88,12 @@ export async function getEditableRsvp(token: unknown) {
   });
 }
 
+/** The photos of the recipe behind a private link, for its edit form. */
+export async function getEditablePhotos(token: unknown) {
+  if (!isEditToken(token)) return [];
+  return listRecipePhotos({ editTokenHash: hashEditToken(token) });
+}
+
 /** Authorization and both writes share a transaction. No client RSVP id is used. */
 export async function updateRsvp(token: unknown, input: RsvpInput) {
   if (!isEditToken(token)) return false;
@@ -111,7 +118,8 @@ export async function writeRsvp(where: { editTokenHash: string } | { id: string 
     });
     if (rsvp.count !== 1) return false;
     const { id } = await tx.rsvp.findUniqueOrThrow({ where, select: { id: true } });
-    // Declines release the soup publicly but keep it, and its recipe, for a later return.
+    // Declines release the soup publicly but keep it, and its recipe, for a
+    // later return. Removing the soup removes its photos with it.
     if (input.status === "ATTENDING") {
       if (input.soup) {
         const soup = { ...input.soup, normalizedName: normalizeSoupName(input.soup.name) };

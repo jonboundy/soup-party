@@ -31,8 +31,20 @@ export type RsvpFormState =
   | { status: "rate-limited"; retryAfter: number }
   | { status: "conflict" }
   | { status: "unauthorized" }
-  /** Saved. `soup` is the soup registered, or null if that is undecided. */
-  | { status: "attending"; name: string; secondName: string | null; soup: GuestSoup | null; editPath: string }
+  /**
+   * Saved. `soup` is the soup registered, or null if that is undecided.
+   * `photos` is added by the form once it has sent the recipe's photos, which
+   * the action that saves a response knows nothing of: how many the recipe
+   * has now, and how many changes to them could not be made.
+   */
+  | {
+      status: "attending";
+      name: string;
+      secondName: string | null;
+      soup: GuestSoup | null;
+      editPath: string;
+      photos?: { saved: number; unsaved: number };
+    }
   /**
    * Saved, and not attending. `unlistedSoup` names a soup the response still
    * holds, which the registry no longer shows.

@@ -3,8 +3,11 @@ import "server-only";
 import { db } from "@/lib/db";
 import { guestNames } from "@/lib/guest-names";
 import { requireHost } from "@/lib/host-session";
+import type { Jpeg } from "@/lib/jpeg";
+import { addRecipePhoto, listRecipePhotos, removeRecipePhoto } from "@/lib/recipe-photos";
 import { writeRsvp } from "@/lib/rsvp";
 import type { RsvpInput } from "@/lib/rsvp-schema";
+import { isUuid } from "@/lib/uuid";
 
 /**
  * Every RSVP as the host sees it, with the figures counted from that same
@@ -26,7 +29,16 @@ export async function getHostOverview() {
         partySize: true,
         createdAt: true,
         updatedAt: true,
-        soup: { select: { id: true, name: true, recipeUrl: true, recipeText: true, updatedAt: true } },
+        soup: {
+          select: {
+            id: true,
+            name: true,
+            recipeUrl: true,
+            recipeText: true,
+            updatedAt: true,
+            _count: { select: { photos: true } },
+          },
+        },
       },
     }),
     db.event.findUnique({ where: { id: 1 }, select: { timeZone: true } }),
@@ -39,7 +51,8 @@ export async function getHostOverview() {
     // The id is public once there is a recipe: it is the recipe page's address.
     soup: soup && {
       name: soup.name,
-      recipePath: soup.recipeUrl || soup.recipeText ? `/soups/${soup.id}` : null,
+      recipePath:
+        soup.recipeUrl || soup.recipeText || soup._count.photos ? `/soups/${soup.id}` : null,
     },
   }));
   const attending = rsvps.filter(({ status }) => status === "ATTENDING");
@@ -70,15 +83,10 @@ export async function getHostOverview() {
 export type HostOverview = Awaited<ReturnType<typeof getHostOverview>>;
 export type HostRsvp = HostOverview["attending"][number];
 
-// Anything else is not an RSVP id, and PostgreSQL would reject it as an error.
-function isRsvpId(id: unknown): id is string {
-  return typeof id === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id);
-}
-
 /** One RSVP's answers, for the host to correct. Null when there is none. */
 export async function getHostRsvp(id: unknown) {
   await requireHost();
-  if (!isRsvpId(id)) return null;
+  if (!isUuid(id)) return null;
   return db.rsvp.findUnique({
     where: { id },
     select: {
@@ -97,7 +105,7 @@ export async function getHostRsvp(id: unknown) {
  */
 export async function updateHostRsvp(id: unknown, input: RsvpInput) {
   await requireHost();
-  if (!isRsvpId(id)) return false;
+  if (!isUuid(id)) return false;
   return writeRsvp({ id }, input);
 }
 
@@ -108,7 +116,26 @@ export async function updateHostRsvp(id: unknown, input: RsvpInput) {
  */
 export async function removeHostRsvp(id: unknown) {
   await requireHost();
-  if (!isRsvpId(id)) return false;
+  if (!isUuid(id)) return false;
   const removed = await db.rsvp.deleteMany({ where: { id } });
   return removed.count === 1;
+}
+
+/** The photos of a guest's recipe, for the host's editor. */
+export async function listHostRecipePhotos(id: unknown) {
+  await requireHost();
+  return isUuid(id) ? listRecipePhotos({ id }) : [];
+}
+
+/** Adds a photo to a guest's recipe, as the guest could with their link. */
+export async function addHostRecipePhoto(id: unknown, photo: Jpeg) {
+  await requireHost();
+  if (!isUuid(id)) return { status: "no-soup" as const };
+  return addRecipePhoto({ id }, photo);
+}
+
+/** Removes a photo from a guest's recipe. Nothing happens if it is not theirs. */
+export async function removeHostRecipePhoto(id: unknown, photoId: unknown) {
+  await requireHost();
+  if (isUuid(id)) await removeRecipePhoto({ id }, photoId);
 }

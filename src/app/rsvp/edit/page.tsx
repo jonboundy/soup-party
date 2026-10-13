@@ -16,15 +16,15 @@ async function PrivateRsvp({ searchParams }: PageProps<"/rsvp/edit">) {
   const { token } = await searchParams;
   if (!isEditToken(token)) return <InvalidLink />;
   if (!process.env.DATABASE_URL) return <Unavailable />;
-  let rsvp;
+  let rsvp, photos;
   try {
-    const { getEditableRsvp } = await import("@/lib/rsvp");
-    rsvp = await getEditableRsvp(token);
+    const { getEditablePhotos, getEditableRsvp } = await import("@/lib/rsvp");
+    [rsvp, photos] = await Promise.all([getEditableRsvp(token), getEditablePhotos(token)]);
   } catch {
     return <Unavailable />;
   }
   if (!rsvp) return <InvalidLink />;
-  return <RsvpForm initial={rsvp} editToken={token} />;
+  return <RsvpForm initial={rsvp} savedPhotos={photos} editToken={token} />;
 }
 
 function InvalidLink() {

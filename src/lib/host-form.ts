@@ -16,6 +16,8 @@ export type HostSignInState =
 export type HostRsvpState =
   | { status: "idle" }
   | { status: "invalid"; errors: RsvpErrors }
+  /** Saved, and still on the page: the editor asked to send photos next. */
+  | { status: "saved" }
   /** The RSVP has been removed since the page was loaded. */
   | { status: "missing" }
   /** Not saved. Submitting again may work. */

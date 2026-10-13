@@ -1,13 +1,16 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateTag } from "next/cache";
 
-import { removeHostRsvp, saveHostRsvp } from "@/app/host/actions";
+import {
+  addHostRecipePhoto, finishHostRecipePhotos, removeHostRecipePhoto, removeHostRsvp, saveHostRsvp,
+} from "@/app/host/actions";
 import { db } from "@/lib/db";
-import { getHostOverview, getHostRsvp } from "@/lib/host-rsvps";
+import { getHostOverview, getHostRsvp, listHostRecipePhotos } from "@/lib/host-rsvps";
 import { readPublicRecipe, readPublicSoups } from "@/lib/public-soups";
-import { cancelRsvp, createRsvp, getEditableRsvp } from "@/lib/rsvp";
+import { cancelRsvp, createRsvp, getEditablePhotos, getEditableRsvp } from "@/lib/rsvp";
 
 import { clearRsvps, soupNamed } from "./database";
+import { metadata, photoForm, testJpeg } from "./jpeg-fixture";
 
 const host = vi.hoisted(() => ({ signedIn: true }));
 vi.mock("@/lib/host-session", () => ({
@@ -145,6 +148,73 @@ describe("host corrections", () => {
     await expect(save(id, { name: "Ada Byron" })).rejects.toThrow(done);
     expect(await readPublicRecipe(soupId)).toBeNull();
     expect((await getHostOverview()).attending[0].soup).toEqual({ name: "Minestrone", recipePath: null });
+  });
+
+  it("add and remove a recipe's photos on a guest's behalf", async () => {
+    const { id, editToken } = await createRsvp(original);
+    const { id: otherId } = await createRsvp({ ...original, attendeeName: "Grace Hopper", soup: soupNamed("Borscht") });
+    const soupId = (await stored(id))!.soup!.id;
+
+    const added = await addHostRecipePhoto(photoForm({ rsvpId: id }, testJpeg({ extra: metadata })));
+    if (added.status !== "saved") throw new Error("Expected a saved photo");
+    const photo = { id: added.photo.id, src: `/soups/${soupId}/photos/${added.photo.id}` };
+    expect(added).toEqual({ status: "saved", photo });
+    expect(await listHostRecipePhotos(id)).toEqual([photo]);
+    expect(await getEditablePhotos(editToken)).toEqual([photo]);
+    expect((await db.recipePhoto.findFirstOrThrow()).bytes).toEqual(testJpeg());
+    expect(await readPublicRecipe(soupId)).toMatchObject({ photos: [{ id: photo.id }] });
+    expect((await getHostOverview()).soups).toMatchObject([{ name: "Borscht", recipePath: null }, { recipePath: `/soups/${soupId}` }]);
+
+    expect(await addHostRecipePhoto(photoForm({ rsvpId: id }, testJpeg().slice(0, 30)))).toEqual({ status: "invalid" });
+    for (const rsvpId of ["", "minestrone", soupId, "00000000-0000-4000-8000-000000000000"]) {
+      expect(await addHostRecipePhoto(photoForm({ rsvpId }, testJpeg()))).toEqual({ status: "no-soup" });
+      expect(await listHostRecipePhotos(rsvpId)).toEqual([]);
+    }
+    // A photo is removed only through the response it belongs to.
+    expect(await removeHostRecipePhoto(photoForm({ rsvpId: otherId, photoId: photo.id }))).toEqual({ status: "removed" });
+    expect(await db.recipePhoto.count()).toBe(1);
+    expect(await removeHostRecipePhoto(photoForm({ rsvpId: id, photoId: photo.id }))).toEqual({ status: "removed" });
+    expect(await db.recipePhoto.count()).toBe(0);
+    expect(await readPublicRecipe(soupId)).toBeNull();
+  });
+
+  it("refuse a recipe's photos to anyone but the signed-in host", async () => {
+    const { id } = await createRsvp(original);
+    const added = await addHostRecipePhoto(photoForm({ rsvpId: id }, testJpeg()));
+    if (added.status !== "saved") throw new Error("Expected a saved photo");
+    vi.clearAllMocks();
+    host.signedIn = false;
+
+    await expect(addHostRecipePhoto(photoForm({ rsvpId: id }, testJpeg()))).rejects.toThrow(done);
+    await expect(removeHostRecipePhoto(photoForm({ rsvpId: id, photoId: added.photo.id }))).rejects.toThrow(done);
+    await expect(listHostRecipePhotos(id)).rejects.toThrow(done);
+    expect(await db.recipePhoto.count()).toBe(1);
+    expect(updateTag).not.toHaveBeenCalled();
+  });
+
+  it("stay on the page while the editor sends photos, and leave by a last request", async () => {
+    const { id } = await createRsvp(original);
+    expect(await save(id, { name: "Ada Byron", photosFollow: "yes" })).toEqual({ status: "saved" });
+    expect(await stored(id)).toMatchObject({ attendeeName: "Ada Byron" });
+    // Nothing is saved, and so nothing follows, when the correction is invalid.
+    expect(await save(id, { name: "", photosFollow: "yes" })).toMatchObject({ status: "invalid" });
+    await addHostRecipePhoto(photoForm({ rsvpId: id }, testJpeg()));
+    // The registry is left alone until the last request, which expires it.
+    expect(updateTag).not.toHaveBeenCalled();
+
+    await expect(finishHostRecipePhotos(photoForm({ rsvpId: id, unsaved: "0" }))).rejects.toThrow(done);
+    expect(updateTag).toHaveBeenCalledExactlyOnceWith("soups");
+    // With changes that failed, the host returns to the editor to be told.
+    await expect(finishHostRecipePhotos(photoForm({ rsvpId: id, unsaved: "2" })))
+      .rejects.toThrow(`redirect:/host/rsvps/${id}?unsaved=2`);
+    for (const fields of [{ rsvpId: "//evil.example", unsaved: "1" }, { rsvpId: id, unsaved: "-1" }, { rsvpId: id, unsaved: "x" }]) {
+      await expect(finishHostRecipePhotos(photoForm(fields))).rejects.toThrow(/^redirect:\/host$/);
+    }
+
+    host.signedIn = false;
+    vi.clearAllMocks();
+    await expect(finishHostRecipePhotos(photoForm({ rsvpId: id, unsaved: "0" }))).rejects.toThrow(done);
+    expect(updateTag).not.toHaveBeenCalled();
   });
 
   it("unlist a soup on a decline and relist it on a return, as a guest's own would", async () => {

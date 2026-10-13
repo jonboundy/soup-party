@@ -4,6 +4,8 @@ import { updateTag } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
 import type { HostRsvpState, HostSignInState } from "@/lib/host-form";
+import type { RecipePhotoState } from "@/lib/recipe-photo";
+import { isUuid } from "@/lib/uuid";
 import { parseRsvp } from "@/lib/rsvp-schema";
 
 /**
@@ -79,9 +81,76 @@ export async function saveHostRsvp(
   } catch (error) {
     return failed("corrected", error);
   }
+  // The editor has photos to send before it leaves the page, and ends with
+  // `finishHostRecipePhotos`. Expiring the registry here would redraw the page
+  // under the editor, which is keyed on the answers and would start again.
+  if (formData.get("photosFollow") === "yes") return { status: "saved" };
   // The correction may add, rename, unlist or relist a public soup.
   updateTag("soups");
   redirect("/host");
+}
+
+/**
+ * Ends a correction that sent photos: expires the registry, which the
+ * requests before it left alone, and sends the host back to the responses,
+ * or back to the editor to be told how many changes to the photos failed.
+ */
+export async function finishHostRecipePhotos(formData: FormData): Promise<HostRsvpState> {
+  if (!process.env.DATABASE_URL) return { status: "failed" };
+  const { requireHost } = await import("@/lib/host-session");
+  await requireHost();
+  updateTag("soups");
+  const rsvpId = formData instanceof FormData ? formData.get("rsvpId") : null;
+  const unsaved = formData instanceof FormData ? Number(formData.get("unsaved")) : 0;
+  if (isUuid(rsvpId) && Number.isInteger(unsaved) && unsaved > 0) {
+    redirect(`/host/rsvps/${rsvpId}?unsaved=${unsaved}`);
+  }
+  redirect("/host");
+}
+
+/**
+ * Adds one photo to the recipe of a guest's soup, on their behalf. The
+ * editor sends these between saving a correction and finishing it.
+ */
+export async function addHostRecipePhoto(formData: FormData): Promise<RecipePhotoState> {
+  return changeHostRecipePhotos(formData, async (rsvpId) => {
+    const { uploadedPhoto } = await import("@/lib/recipe-photo-upload");
+    const photo = await uploadedPhoto(formData);
+    if (!photo) return { status: "invalid" };
+    const { addHostRecipePhoto } = await import("@/lib/host-rsvps");
+    return addHostRecipePhoto(rsvpId, photo);
+  });
+}
+
+/** Removes one photo from the recipe of a guest's soup. */
+export async function removeHostRecipePhoto(formData: FormData): Promise<RecipePhotoState> {
+  return changeHostRecipePhotos(formData, async (rsvpId) => {
+    const { removeHostRecipePhoto } = await import("@/lib/host-rsvps");
+    await removeHostRecipePhoto(rsvpId, formData.get("photoId"));
+    return { status: "removed" };
+  });
+}
+
+// Signed-out callers are sent to the sign-in form before anything is read.
+async function changeHostRecipePhotos(
+  formData: FormData,
+  change: (rsvpId: unknown) => Promise<RecipePhotoState>,
+): Promise<RecipePhotoState> {
+  if (!process.env.DATABASE_URL) return { status: "failed" };
+  const { requireHost } = await import("@/lib/host-session");
+  await requireHost();
+  if (!(formData instanceof FormData)) return { status: "failed" };
+
+  let result: RecipePhotoState;
+  try {
+    result = await change(formData.get("rsvpId"));
+  } catch (error) {
+    // Preserve the redirect for a session that ended mid-request.
+    unstable_rethrow(error);
+    console.error("Recipe photo could not be changed:", error instanceof Error ? error.name : typeof error);
+    return { status: "failed" };
+  }
+  return result;
 }
 
 /**

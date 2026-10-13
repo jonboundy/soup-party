@@ -4,7 +4,13 @@ import * as React from "react"
 import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
-import { removeHostRsvp, saveHostRsvp } from "@/app/host/actions"
+import {
+  addHostRecipePhoto,
+  finishHostRecipePhotos,
+  removeHostRecipePhoto,
+  removeHostRsvp,
+  saveHostRsvp,
+} from "@/app/host/actions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,6 +27,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { RecipeFields } from "@/components/recipe-fields"
 import { guestNames } from "@/lib/guest-names"
 import type { HostRsvpState } from "@/lib/host-form"
+import {
+  recipePhotoDraft,
+  syncRecipePhotos,
+  type RecipePhotoRef,
+} from "@/lib/recipe-photo"
 import {
   NAME_MAX_LENGTH,
   SOUP_NAME_MAX_LENGTH,
@@ -46,8 +57,51 @@ function reported(action: Action): Action {
 }
 
 /** The host's form for correcting one guest's response, or removing it. */
-function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) {
-  const [saved, saveAction, saving] = React.useActionState(reported(saveHostRsvp), { status: "idle" })
+function HostRsvpEditor({
+  id,
+  initial,
+  savedPhotos,
+  unsavedPhotos,
+}: {
+  id: string
+  initial: EditableRsvp
+  /** The photos the saved recipe has. */
+  savedPhotos: RecipePhotoRef[]
+  /** Changes to the photos that the last save could not make. */
+  unsavedPhotos: number
+}) {
+  // Chosen photos wait here, as the other answers wait in their fields.
+  const [photos, setPhotos] = React.useState(() => recipePhotoDraft(savedPhotos))
+  const [saved, saveAction, saving] = React.useActionState<HostRsvpState, FormData>(
+    async (previous, formData) => {
+      const result = await reported(saveHostRsvp)(previous, formData)
+      // Saved, and asked to stay: the photos go next, each in a request of
+      // its own, and a last request leaves for the responses.
+      if (result.status !== "saved") return result
+      const request = (field: string, value: string | Blob) => {
+        const data = new FormData()
+        data.set("rsvpId", id)
+        data.set(field, value)
+        return data
+      }
+      const sent = await syncRecipePhotos(photos, {
+        add: (photo) => addHostRecipePhoto(request("photo", photo)),
+        remove: (photoId) => removeHostRecipePhoto(request("photoId", photoId)),
+      })
+      // What could not be sent stays in the form, to be saved again.
+      setPhotos(sent)
+      try {
+        return await finishHostRecipePhotos(
+          request("unsaved", String(sent.added.length + sent.removed.length)),
+        )
+      } catch (error) {
+        // The way out arrives as a redirect, as a plain save's does.
+        unstable_rethrow(error)
+        return { status: "failed" }
+      }
+    },
+    { status: "idle" },
+  )
   const [removed, removeAction, removing] = React.useActionState(reported(removeHostRsvp), { status: "idle" })
   const pending = saving || removing
   const [attendance, setAttendance] = React.useState(
@@ -59,7 +113,11 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
     url: initial.soup?.recipeUrl ?? "",
     text: initial.soup?.recipeText ?? "",
   })
-  const savedRecipe = !!(initial.soup?.recipeUrl || initial.soup?.recipeText)
+  const savedRecipe = !!(
+    initial.soup?.recipeUrl ||
+    initial.soup?.recipeText ||
+    savedPhotos.length
+  )
   const [confirmRemove, setConfirmRemove] = React.useState(false)
   // Fields changed since the last response. Their errors no longer apply.
   const [corrected, setCorrected] = React.useState<RsvpField[]>([])
@@ -120,6 +178,10 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
           event.preventDefault()
           if (pending) return
           const formData = new FormData(event.currentTarget)
+          // Only a listed soup shows its photos, so only then are there changes to send.
+          if (formData.has("recipeUrl") && (photos.added.length || photos.removed.length)) {
+            formData.set("photosFollow", "yes")
+          }
           React.startTransition(() => {
             // Inside the transition so it lands together with the response.
             setCorrected([])
@@ -271,9 +333,12 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
           {attendance === "attending" && soupName.trim() !== "" && (
             <RecipeFields
               id="host-rsvp"
-              description="Optional. A link, the recipe written out, or both. Public once saved."
+              description="Optional. A link, the recipe written out, photos of it, or any of them. Public once saved."
               value={recipe}
               onChange={setRecipe}
+              photos={photos}
+              setPhotos={setPhotos}
+              disabled={pending}
               errors={errors}
               onCorrect={correct}
             />
@@ -284,8 +349,20 @@ function HostRsvpEditor({ id, initial }: { id: string; initial: EditableRsvp }) 
               <AlertDescription>Try again.</AlertDescription>
             </Alert>
           )}
+          {unsavedPhotos > 0 && !pending && saved.status !== "failed" && (
+            <Alert variant="destructive">
+              <AlertTitle>
+                {unsavedPhotos === 1
+                  ? "One change to the photos could not be saved."
+                  : `${unsavedPhotos} changes to the photos could not be saved.`}
+              </AlertTitle>
+              <AlertDescription>
+                Everything else was. The photos above are the ones on file: make the change again.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Button type="submit" size="lg" disabled={pending}>
+            <Button type="submit" size="lg" disabled={pending || photos.preparing}>
               {saving ? "Saving" : "Save changes"}
             </Button>
             <Link href="/host" className="underline underline-offset-4">
