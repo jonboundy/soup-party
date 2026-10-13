@@ -10,6 +10,10 @@ These supersede the PRD wording summarized below wherever the two disagree. The 
 - **A soup is only its name.** Category and description are removed. Implemented. SP-25's bowls can no longer vary by category and need another source of variation, such as the soup's name.
 - **Recipes, so guests can make the soups after the party.** Optional on a soup, in any combination of a link, typed text, and up to three photos of a cookbook page or a handwritten card. Guests add them at RSVP or later through the private edit link, and the host can add one on a guest's behalf. Public as soon as added, through a “Recipe” link in the registry to a noindex page per soup. Photos are shrunk in the browser and stored in Postgres, not in a file store. Implemented on 2026-10-11, link and text first and photos after. One change from what was first agreed: photos are sent when the form is saved, like its other fields, not the moment they are chosen.
 
+## Changed by Jon on 2026-10-12
+
+- **Guests are not asked whether they are coming.** Jon shares the site with friends and does not need to hear from those who are not. The RSVP form has no attendance question: sending it means coming. A guest who cannot come after all cancels from the private edit link, and saving from that link again returns them. `DECLINED` remains in the data model as the cancelled state; the host's dashboard and editor call it “Cancelled,” and the editor can still set either. Implemented. This supersedes “attending/declining” in the v1.0 list, journeys B and C, and the launch checklist below.
+
 ## v1.0 — Invitation-ready launch (label `v1-0`, SP-6..SP-22)
 - Responsive public landing page: minimalist hero, event info, RSVP call-to-action, soup registry.
 - RSVP attending/declining, party size, name, optional soup registration.

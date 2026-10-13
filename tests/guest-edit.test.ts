@@ -106,13 +106,13 @@ describe("private guest RSVP management", () => {
     expect(await edit(editToken)).toMatchObject({ status: "attending", soup: { name: "Minestrone" } });
   });
 
-  it("releases a soup on decline and allows attendance to resume", async () => {
+  it("cannot decline by editing, and returns a cancelled RSVP to the list", async () => {
     const { id, editToken } = await createRsvp(original);
+    expect(await edit(editToken, { attendance: "declined" })).toMatchObject({ status: "attending" });
     expect(await partySize(id)).toBe(2);
-    expect(await edit(editToken, { attendance: "declined" })).toEqual({
-      status: "declined", name: "Ada Lovelace", secondName: "Charles Babbage", unlistedSoup: "Minestrone",
-      editPath: `/rsvp/edit?token=${editToken}`,
-    });
+    expect(await readPublicSoups()).toHaveLength(1);
+
+    await cancel(editToken);
     expect(await getEditableRsvp(editToken)).toEqual({ ...original, status: "DECLINED" });
     expect(await partySize(id)).toBeNull();
     expect(await readPublicSoups()).toEqual([]);
@@ -138,9 +138,8 @@ describe("private guest RSVP management", () => {
     expect(await edit(editToken)).toMatchObject({ status: "attending" });
   });
 
-  it("confirms a decline or cancellation without a soup when none was registered", async () => {
+  it("confirms a cancellation without a soup when none was registered", async () => {
     const { editToken } = await createRsvp({ ...original, soup: null });
-    expect(await edit(editToken, { attendance: "declined" })).toMatchObject({ status: "declined", unlistedSoup: null });
     expect(await cancel(editToken)).toMatchObject({ status: "cancelled", unlistedSoup: null });
     expect(await db.soup.count()).toBe(0);
   });
@@ -190,15 +189,11 @@ describe("private guest RSVP management", () => {
     expect(updateTag).not.toHaveBeenCalled();
   });
 
-  it("keeps a recipe, unlisted, through a decline or cancellation, and loses it with the soup", async () => {
+  it("keeps a recipe, unlisted, through a cancellation, and loses it with the soup", async () => {
     const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." };
     const { id, editToken } = await createRsvp({ ...original, soup: soupNamed("Minestrone", recipe) });
     const soupId = (await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).id;
 
-    expect(await edit(editToken, { attendance: "declined" })).toMatchObject({ status: "declined" });
-    expect(await readPublicRecipe(soupId)).toBeNull();
-    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
-    expect(await edit(editToken, recipe)).toMatchObject({ status: "attending" });
     expect(await cancel(editToken)).toMatchObject({ status: "cancelled" });
     expect(await readPublicRecipe(soupId)).toBeNull();
     expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });

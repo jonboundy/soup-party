@@ -8,7 +8,7 @@ export const SOUP_NAME_MAX_LENGTH = 80;
 export const RECIPE_URL_MAX_LENGTH = 2000;
 export const RECIPE_TEXT_MAX_LENGTH = 10000;
 
-/** The form's field names, as submitted. */
+/** The form's field names, as submitted. Only the host is asked for attendance. */
 export type RsvpField =
   | "name"
   | "secondName"
@@ -46,11 +46,11 @@ export type RsvpFormState =
       photos?: { saved: number; unsaved: number };
     }
   /**
-   * Saved, and not attending. `unlistedSoup` names a soup the response still
-   * holds, which the registry no longer shows.
+   * Cancelled. `unlistedSoup` names a soup the response still holds, which
+   * the registry no longer shows.
    */
   | {
-      status: "declined" | "cancelled";
+      status: "cancelled";
       name: string;
       secondName: string | null;
       unlistedSoup: string | null;

@@ -280,7 +280,7 @@ function HostRsvpEditor({
                   aria-invalid={!!errors.attendance}
                 />
                 <FieldLabel htmlFor="host-rsvp-declined" className="font-normal">
-                  Declined
+                  Cancelled
                 </FieldLabel>
               </Field>
             </RadioGroup>

@@ -137,7 +137,7 @@ async function HostDashboard() {
             <Figure term="Guests expected">{counts.guests}</Figure>
           </div>
           <Figure term="Attending">{counts.attending}</Figure>
-          <Figure term="Declined">{counts.declined}</Figure>
+          <Figure term="Cancelled">{counts.declined}</Figure>
           <Figure term="Soups">{counts.soups}</Figure>
           <Figure term="Undecided">{counts.undecided}</Figure>
         </dl>
@@ -201,7 +201,7 @@ async function HostDashboard() {
         ))}
       </Group>
 
-      <Group id="host-declined" title="Declined." count={counts.declined} empty="Nobody yet.">
+      <Group id="host-declined" title="Cancelled." count={counts.declined} empty="Nobody yet.">
         {declined.map((rsvp) => (
           <Row key={rsvp.id}>
             <div>
