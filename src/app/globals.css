@@ -248,6 +248,53 @@
   }
 }
 
+/* The event's title above the hero's headline. "Electric Boogaloo" is a neon
+   sign: it flickers on once as the page loads and stays lit. Its own styles
+   are the lit sign, so that is what reduced motion gets. */
+@layer components {
+  [data-slot="event-title"] {
+    font-size: clamp(0.95rem, 0.85rem + 0.5vw, 1.25rem);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  [data-slot="event-title"] > span {
+    --glow:
+      0 0 0.3em color-mix(in oklch, var(--brand) 60%, transparent),
+      0 0 1em color-mix(in oklch, var(--brand) 40%, transparent),
+      0 0 2.2em color-mix(in oklch, var(--brand) 25%, transparent);
+    color: var(--brand);
+    text-shadow: var(--glow);
+    /* A narrow screen breaks the title at the colon, never inside the sign. */
+    white-space: nowrap;
+    animation: neon-on 1.1s linear 0.3s backwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="event-title"] > span {
+      animation: none;
+    }
+  }
+  /* Asked for more contrast, and on paper, the sign has no glow. */
+  @media (prefers-contrast: more), print {
+    [data-slot="event-title"] > span {
+      text-shadow: none;
+    }
+  }
+}
+
+/* Off, two short flashes, then on. It ends on the sign's own styles. */
+@keyframes neon-on {
+  0%, 12%, 17%, 34%, 39%, 52% {
+    color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+    text-shadow: none;
+  }
+  13%, 16%, 35%, 38%, 53% {
+    color: var(--brand);
+    text-shadow: var(--glow);
+  }
+}
+
 /* Type scale. Named `type-*` rather than `text-*` so `cn` does not mistake
    them for text colors and drop them when merging classes. */
 @utility type-display {
