@@ -15,6 +15,10 @@ These supersede the PRD wording summarized below wherever the two disagree. The 
 - **Guests are not asked whether they are coming.** Jon shares the site with friends and does not need to hear from those who are not. The RSVP form has no attendance question: sending it means coming. A guest who cannot come after all cancels from the private edit link, and saving from that link again returns them. `DECLINED` remains in the data model as the cancelled state; the host's dashboard and editor call it “Cancelled,” and the editor can still set either. Implemented. This supersedes “attending/declining” in the v1.0 list, journeys B and C, and the launch checklist below.
 - **The date, time and location are in the hero.** They sit in a row under the headline and the bowl, and between the call to action and the bowl on a small screen, so nobody scrolls for them. The “premise” band is removed, and the details section is reduced to a short band for the instructions. Jon chose this over the five stacked sections the page had. Implemented.
 
+## Changed by Jon on 2026-10-13
+
+- **The registry's rows are tighter, and the page stays one scroll.** Jon expects about ten soups. He considered making the three sections tabs or pages of their own, and a registry that scrolls in place, and chose shorter rows instead: from the `sm` breakpoint a soup, who is bringing it and its recipe link share one line in aligned columns, and on a phone the contributor stays under the soup with less padding. Every soup remains visible without a click. Implemented.
+
 ## v1.0 — Invitation-ready launch (label `v1-0`, SP-6..SP-22)
 - Responsive public landing page: minimalist hero, event info, RSVP call-to-action, soup registry.
 - RSVP attending/declining, party size, name, optional soup registration.

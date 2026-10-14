@@ -35,24 +35,27 @@ async function SoupList() {
   }
 
   return (
-    <ul aria-label="Registered soups" className="border-t">
+    // One grid for the whole list, so the rows' columns line up whether or
+    // not a soup has a recipe. Below `sm` the contributor goes under the soup.
+    <ul
+      aria-label="Registered soups"
+      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 border-t sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)_auto]"
+    >
       {soups.map((soup, index) => (
         <li
           key={index}
-          className="flex items-baseline justify-between gap-6 border-b py-6 sm:py-8"
+          className="col-span-full grid grid-cols-subgrid items-baseline border-b py-4 sm:py-5"
         >
-          <div className="min-w-0">
-            <h3 className="type-heading [overflow-wrap:anywhere]">{soup.name}</h3>
-            <p className="mt-2 text-muted-foreground [overflow-wrap:anywhere]">
-              Brought by {soup.contributorName}
-            </p>
-          </div>
+          <h3 className="type-heading [overflow-wrap:anywhere]">{soup.name}</h3>
+          <p className="col-start-1 mt-1 text-muted-foreground [overflow-wrap:anywhere] sm:col-start-2 sm:mt-0">
+            Brought by {soup.contributorName}
+          </p>
           {soup.recipePath && (
             <Link
               href={soup.recipePath}
               // The list's links would otherwise all read "Recipe".
               aria-label={`Recipe for ${soup.name}`}
-              className="shrink-0 underline underline-offset-4"
+              className="col-start-2 row-start-1 underline underline-offset-4 sm:col-start-3"
             >
               Recipe
             </Link>
