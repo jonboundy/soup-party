@@ -17,8 +17,9 @@ export type SoupLetter = {
 export type SoupPlace = { letter: number; x: number; y: number; angle: number };
 
 // Every letter once, then enough again to spell SOUP PARTY, then a few vowels,
-// the second L of STILL and the second N of BRING SPOON.
-const SOUP_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "SOUPPARTY" + "AEEILNO";
+// the second G of BRING GAMES, the second L of STILL and a second N, which
+// names often have.
+const SOUP_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "SOUPPARTY" + "AEEGILNO";
 
 /** Half the room a letter keeps to itself. */
 export const LETTER_RADIUS = 0.1;
@@ -124,9 +125,14 @@ export function random(seed: number) {
 
 /**
  * Scatters letters across the bowl, loosely but without overlaps. The same
- * arguments always give the same soup.
+ * arguments always give the same soup. Letters for a `word` are put in its
+ * places instead, with the room around them that a word keeps.
  */
-export function layoutSoupLetters(chars = SOUP_CHARS, seed = 4): SoupLetter[] {
+export function layoutSoupLetters(
+  chars = SOUP_CHARS,
+  seed = 4,
+  word: readonly SoupLetter[] = [],
+): SoupLetter[] {
   const next = random(seed);
   const order = Array.from(chars);
   for (let i = order.length - 1; i > 0; i--) {
@@ -134,8 +140,23 @@ export function layoutSoupLetters(chars = SOUP_CHARS, seed = 4): SoupLetter[] {
     [order[i], order[j]] = [order[j], order[i]];
   }
 
+  // Which letter of the soup each letter of the word is: the first that fits.
+  const spelled = new Map<number, SoupLetter>();
+  for (const spot of word) {
+    const letter = order.findIndex((char, n) => char === spot.char && !spelled.has(n));
+    if (letter < 0) {
+      throw new Error(`The soup has no ${spot.char} to spare.`);
+    }
+    spelled.set(letter, spot);
+  }
+
   const letters: SoupLetter[] = [];
-  for (const char of order) {
+  for (const [index, char] of order.entries()) {
+    const spot = spelled.get(index);
+    if (spot) {
+      letters.push(spot);
+      continue;
+    }
     // The roomiest of a few random spots, so letters spread out without
     // forming a pattern.
     let x = 0;
@@ -154,7 +175,11 @@ export function layoutSoupLetters(chars = SOUP_CHARS, seed = 4): SoupLetter[] {
       for (const other of letters) {
         nearest = Math.min(nearest, (other.x - px) ** 2 + (other.y - py) ** 2);
       }
-      if (nearest > room) {
+      let clear = true;
+      for (const other of word) {
+        clear &&= (other.x - px) ** 2 + (other.y - py) ** 2 >= WORD_ROOM ** 2;
+      }
+      if (clear && nearest > room) {
         x = px;
         y = py;
         room = nearest;
@@ -271,16 +296,17 @@ export function stirSoup(
 
 /**
  * Starts drawing letters out of the broth to the places given, where they
- * stay until `scatterSoup`. The other letters keep clear of them.
+ * stay until `scatterSoup`. The other letters keep clear of them. Letters
+ * that are `there` already are held at once.
  */
-export function spellSoup(soup: Soup, places: readonly SoupPlace[]) {
+export function spellSoup(soup: Soup, places: readonly SoupPlace[], there = false) {
   scatterSoup(soup);
   const { word } = soup;
   word.left = word.top = Infinity;
   word.right = word.bottom = -Infinity;
   for (const place of places) {
     // Any grip at all marks the letter as part of the word.
-    soup.hold[place.letter] = Number.MIN_VALUE;
+    soup.hold[place.letter] = there ? 1 : Number.MIN_VALUE;
     soup.homeX[place.letter] = place.x;
     soup.homeY[place.letter] = place.y;
     soup.homeAngle[place.letter] = place.angle;
@@ -289,7 +315,8 @@ export function spellSoup(soup: Soup, places: readonly SoupPlace[]) {
     word.top = Math.min(word.top, place.y - WORD_ROOM);
     word.bottom = Math.max(word.bottom, place.y + WORD_ROOM);
   }
-  soup.spelling = soup.astray = places.length;
+  soup.spelling = places.length;
+  soup.astray = there ? 0 : places.length;
 }
 
 /** Lets go of a word's letters, which are the broth's again from where they are. */

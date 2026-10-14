@@ -1,7 +1,7 @@
 // What the alphabet soup in the hero spells now and then, and when. Plain
 // arithmetic with no DOM, like the soup itself.
 
-import { random, type SoupPlace } from "@/lib/alphabet-soup";
+import { random, type SoupLetter, type SoupPlace } from "@/lib/alphabet-soup";
 
 export type SoupMessage = {
   /** Capital letters A to Z only, a word to a line. */
@@ -24,8 +24,6 @@ const SLIP = 0.012;
 /** The first stir that ends in a message, and how many stirs later the next does. */
 const FIRST_STIR = 1;
 const STIRS_BETWEEN = 1;
-/** How many stirs earn the praise. */
-const MANY_STIRS = 15;
 
 // A pause in the person's movement separates stirs even while the broth is
 // still spinning. Waiting for the broth to slow would swallow short pauses.
@@ -55,15 +53,20 @@ function phrase(...lines: string[]): SoupMessage {
 export const SOUP_MESSAGES: readonly SoupMessage[] = [
   phrase("SOUP", "PARTY"),
   phrase("GOOD", "SOUP"),
+  phrase("I", "AM", "SOUP"),
   phrase("GOOD", "STIR"),
-  phrase("BRING", "SPOON"),
+  phrase("BIRD", "NIGHT"),
+  phrase("BRING", "GAMES"),
+  phrase("I", "SEE", "YOU"),
   phrase("MORE", "SOUP"),
   phrase("STILL", "SOUP"),
+  phrase("ARE", "YOU", "DONE"),
   phrase("BRING", "SOUP"),
+  phrase("PLEASE", "STOP"),
 ];
 
-/** Spelled once, for whoever has stirred the soup many times. Not one of the rotation. */
-export const SOUP_PRAISE = phrase("GOOD", "JOB");
+/** What the soup spells as it is served, before anyone stirs it. Not one of the rotation. */
+export const SOUP_INVITATION = phrase("STIR", "ME");
 
 /**
  * The first names of the guests behind a response, a line each, like a place
@@ -104,7 +107,7 @@ function count(text: Iterable<string>) {
 export function reletterSoup(
   chars: readonly string[],
   message: SoupMessage,
-  keep: readonly SoupMessage[] = [...SOUP_MESSAGES, SOUP_PRAISE],
+  keep: readonly SoupMessage[] = SOUP_MESSAGES,
   avoid: (letter: number) => boolean = () => false,
 ): Map<number, string> | null {
   const wanted = count(message.lines.join(""));
@@ -143,9 +146,35 @@ export function reletterSoup(
 }
 
 /**
- * Where each letter of a message goes: on lines across the middle of the
- * bowl, nearly upright, each place taken by the nearest letter that fits it.
- * `x` and `y` are where the letters are now. Null if the soup lacks a letter.
+ * Where the letters of a message go: on lines across the middle of the bowl,
+ * nearly upright. Seeded by the message, so it is askew the same way each
+ * time.
+ */
+export function soupMessageSpots(message: SoupMessage): SoupLetter[] {
+  let seed = 0;
+  for (const char of message.lines.join("\n")) {
+    seed = (Math.imul(seed, 31) + char.charCodeAt(0)) | 0;
+  }
+  const next = random(seed);
+
+  const spots: SoupLetter[] = [];
+  for (const [row, line] of message.lines.entries()) {
+    for (let column = 0; column < line.length; column++) {
+      spots.push({
+        char: line[column],
+        x: (column - (line.length - 1) / 2) * PITCH + (next() * 2 - 1) * SLIP,
+        y: (row - (message.lines.length - 1) / 2) * LINE_GAP + (next() * 2 - 1) * SLIP,
+        angle: (next() * 2 - 1) * TILT,
+      });
+    }
+  }
+  return spots;
+}
+
+/**
+ * Where each letter of a message goes, as `soupMessageSpots`, each place
+ * taken by the nearest letter that fits it. `x` and `y` are where the letters
+ * are now. Null if the soup lacks a letter.
  */
 export function placeSoupMessage(
   message: SoupMessage,
@@ -153,37 +182,23 @@ export function placeSoupMessage(
   x: ArrayLike<number>,
   y: ArrayLike<number>,
 ): SoupPlace[] | null {
-  // Seeded by the message, so it is askew the same way each time.
-  let seed = 0;
-  for (const char of message.lines.join("\n")) {
-    seed = (Math.imul(seed, 31) + char.charCodeAt(0)) | 0;
-  }
-  const next = random(seed);
-
   const taken = new Set<number>();
   const places: SoupPlace[] = [];
-  for (const [row, line] of message.lines.entries()) {
-    for (let column = 0; column < line.length; column++) {
-      const place = {
-        letter: -1,
-        x: (column - (line.length - 1) / 2) * PITCH + (next() * 2 - 1) * SLIP,
-        y: (row - (message.lines.length - 1) / 2) * LINE_GAP + (next() * 2 - 1) * SLIP,
-        angle: (next() * 2 - 1) * TILT,
-      };
-      let nearest = Infinity;
-      for (let n = 0; n < chars.length; n++) {
-        const distance = (x[n] - place.x) ** 2 + (y[n] - place.y) ** 2;
-        if (chars[n] === line[column] && !taken.has(n) && distance < nearest) {
-          place.letter = n;
-          nearest = distance;
-        }
+  for (const { char, ...spot } of soupMessageSpots(message)) {
+    const place = { letter: -1, ...spot };
+    let nearest = Infinity;
+    for (let n = 0; n < chars.length; n++) {
+      const distance = (x[n] - place.x) ** 2 + (y[n] - place.y) ** 2;
+      if (chars[n] === char && !taken.has(n) && distance < nearest) {
+        place.letter = n;
+        nearest = distance;
       }
-      if (place.letter < 0) {
-        return null;
-      }
-      taken.add(place.letter);
-      places.push(place);
     }
+    if (place.letter < 0) {
+      return null;
+    }
+    taken.add(place.letter);
+    places.push(place);
   }
   return places;
 }
@@ -191,23 +206,16 @@ export function placeSoupMessage(
 /**
  * Decides which stirs end in a message, and in which one. It is a fixed
  * pattern and not chance: each completed stir, through the messages in
- * order and round again. The first message after many stirs is the praise
- * instead, once. A guest who has just
- * responded is next whatever the count, and from then on has a turn like the
- * rest.
+ * order and round again. A guest who has just responded is next whatever the
+ * count, and from then on has a turn like the rest.
  */
-export function soupMessageQueue(
-  messages: readonly SoupMessage[] = SOUP_MESSAGES,
-  praise: SoupMessage = SOUP_PRAISE,
-) {
+export function soupMessageQueue(messages: readonly SoupMessage[] = SOUP_MESSAGES) {
   let stirs = 0;
   let due = FIRST_STIR;
   let turn = 0;
   let guest: SoupMessage | null = null;
   let greeting = false;
-  let praised = false;
-  // What `next` last gave, and whether as a greeting.
-  let offered: SoupMessage | null = null;
+  // Whether `next` last gave the guest as a greeting.
   let greeted = false;
   const rotation = () => (guest ? [...messages, guest] : messages);
 
@@ -220,15 +228,9 @@ export function soupMessageQueue(
     next(): SoupMessage | null {
       greeted = greeting;
       if (greeting) {
-        offered = guest;
-      } else if (stirs < due) {
-        offered = null;
-      } else if (!praised && stirs >= MANY_STIRS) {
-        offered = praise;
-      } else {
-        offered = rotation()[turn % rotation().length];
+        return guest;
       }
-      return offered;
+      return stirs < due ? null : rotation()[turn % rotation().length];
     },
     /**
      * The message `next` gave was spelled. Until then it stays next, so a
@@ -242,8 +244,6 @@ export function soupMessageQueue(
         if (turn % rotation().length === messages.length) {
           turn++;
         }
-      } else if (offered === praise) {
-        praised = true;
       } else {
         turn++;
       }

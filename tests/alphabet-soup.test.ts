@@ -13,11 +13,12 @@ import {
   type Soup,
 } from "@/lib/alphabet-soup";
 import {
+  SOUP_INVITATION,
   SOUP_MESSAGES,
-  SOUP_PRAISE,
   guestSoupMessage,
   placeSoupMessage,
   reletterSoup,
+  soupMessageSpots,
 } from "@/lib/soup-messages";
 
 const FRAME = 1 / 60;
@@ -72,6 +73,29 @@ describe("layoutSoupLetters", () => {
         expect(Math.hypot(letter.x - other.x, letter.y - other.y)).toBeGreaterThanOrEqual(
           2 * LETTER_RADIUS - 0.002,
         );
+      }
+    }
+  });
+
+  it("can be served with a word spelled, and the rest clear of it", () => {
+    const word = soupMessageSpots(SOUP_INVITATION);
+    const served = layoutSoupLetters(undefined, undefined, word);
+    expect(served.map((letter) => letter.char).sort()).toEqual(
+      letters.map((letter) => letter.char).sort(),
+    );
+    for (const spot of word) {
+      expect(served).toContainEqual(spot);
+    }
+    for (const [index, letter] of served.entries()) {
+      expect(Math.hypot(letter.x, letter.y)).toBeLessThanOrEqual(LETTER_LIMIT);
+      for (const other of served.slice(index + 1)) {
+        const worded = Number(word.includes(letter)) + Number(word.includes(other));
+        // The letters of a word are closer to each other than loose letters are.
+        if (worded < 2) {
+          expect(Math.hypot(letter.x - other.x, letter.y - other.y)).toBeGreaterThanOrEqual(
+            worded ? 0.29 : 2 * LETTER_RADIUS - 0.002,
+          );
+        }
       }
     }
   });
@@ -246,6 +270,24 @@ describe("spellSoup", () => {
     return { soup, places };
   }
 
+  it("holds letters that are in their places already, as the soup is served", () => {
+    const served = layoutSoupLetters(undefined, undefined, soupMessageSpots(SOUP_INVITATION));
+    const soup = createSoup(served);
+    const places = placeSoupMessage(SOUP_INVITATION, chars, soup.x, soup.y)!;
+    spellSoup(soup, places, true);
+    expect(soup.astray).toBe(0);
+
+    swirlSoup(soup, 26);
+    for (let frame = 0; frame < 120; frame++) {
+      stepSoup(soup, FRAME);
+    }
+    expect(soup.astray).toBe(0);
+    for (const place of places) {
+      expect(soup.x[place.letter]).toBe(place.x);
+      expect(soup.y[place.letter]).toBe(place.y);
+    }
+  });
+
   it("draws the letters to their places and holds them there", () => {
     const { soup, places } = spell();
     expect(soup.spelling).toBe(9);
@@ -286,7 +328,7 @@ describe("spellSoup", () => {
   });
 
   it("keeps the other letters clear of the word, and in the bowl", () => {
-    for (const message of [...SOUP_MESSAGES, SOUP_PRAISE]) {
+    for (const message of [...SOUP_MESSAGES, SOUP_INVITATION]) {
       const { soup } = spell(message);
       settle(soup);
 
