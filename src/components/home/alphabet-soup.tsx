@@ -6,10 +6,21 @@ import { cn } from "cn"
 import {
   createSoup,
   layoutSoupLetters,
+  scatterSoup,
+  spellSoup,
   stepSoup,
   stirSoup,
   swirlSoup,
 } from "@/lib/alphabet-soup"
+import { onSoupGuests } from "@/lib/soup-guests"
+import {
+  guestSoupMessage,
+  placeSoupMessage,
+  reletterSoup,
+  soupMessageQueue,
+  soupStirTracker,
+  type SoupMessage,
+} from "@/lib/soup-messages"
 
 // The drawing's units. The broth that moves stops half a letter short of the
 // broth that is drawn, so a letter carried to its edge stays clear of the bowl.
@@ -18,6 +29,11 @@ const BROTH = 152
 const UNIT = 138
 // How fast the soup is turning when it is first seen, in degrees a second.
 const SERVED_SWIRL = 26
+// Once formed, a word stays protected for this long before stirring can
+// release its letters. The rest of the soup remains free to move.
+const WORD_HOLD = 3000
+
+const LABEL = "A bowl of alphabet soup."
 
 const letters = layoutSoupLetters()
 
@@ -29,6 +45,10 @@ function place(x: number, y: number, angle: number) {
 // or a finger. The server renders it complete and still, which is how it stays
 // without JavaScript and with reduced motion. Otherwise it turns a little when
 // first seen, and runs only while it is on screen and has not yet settled.
+//
+// Now and then a stir ends with some of the letters in a message: see
+// `soupMessageQueue` for which stirs and which messages. The next stir breaks
+// it up.
 function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
   const rootRef = React.useRef<HTMLDivElement>(null)
   const pastaRef = React.useRef<SVGGElement>(null)
@@ -53,6 +73,28 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
     let frame = 0
     let last = 0
 
+    const queue = soupMessageQueue()
+    const stirs = soupStirTracker()
+    // What each letter is. A guest's name can change some of them.
+    const chars = letters.map((letter) => letter.char)
+    let changes: Map<number, string> | null = null
+    let stirring = false
+    // The message forming or formed, and whether it has finished forming.
+    let message: SoupMessage | null = null
+    let spelled = false
+    let protectedUntil = 0
+
+    // Letters change while nobody can see which: out of view, or failing
+    // that as a stir sets them all moving.
+    const reletter = () => {
+      for (const [n, char] of changes ?? []) {
+        chars[n] = char
+        pasta.children[n].firstElementChild!.textContent = char
+        shadows.children[n].firstElementChild!.textContent = char
+      }
+      changes = null
+    }
+
     const tick = (now: number) => {
       // The first frame after a pause has no previous one to measure from.
       const seconds = last ? Math.min(Math.max((now - last) / 1000, 0), 0.1) : 1 / 60
@@ -70,11 +112,34 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
       strokes.length = 0
       settled = !stepSoup(soup, seconds)
 
+      if (stirring && stirs.paused(now)) {
+        stirring = false
+        if (!message) {
+          message = queue.next()
+          const places = message && placeSoupMessage(message, chars, soup.x, soup.y)
+          if (places) {
+            spellSoup(soup, places)
+          } else {
+            message = null
+          }
+        }
+      }
+      if (message && !spelled && soup.astray === 0) {
+        spelled = true
+        protectedUntil = now + WORD_HOLD
+        queue.shown()
+        // Named, for anyone who cannot see it, but not announced.
+        root.setAttribute("aria-label", `${LABEL} Some letters spell ${message.label}.`)
+      }
+
       for (let n = 0; n < soup.letters; n++) {
         const transform = place(soup.x[n], soup.y[n], soup.angle[n])
         pasta.children[n].setAttribute("transform", transform)
         shadows.children[n].setAttribute("transform", transform)
       }
+      // A tiny movement can leave the broth still before the pause ends, or
+      // before a newly started message takes its first step.
+      settled = settled && !stirring && soup.astray === 0
       frame = settled ? 0 : requestAnimationFrame(tick)
     }
 
@@ -99,8 +164,26 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
       const y = (event.clientY - box.top - box.height / 2) * scale
       const from = pointers.get(event.pointerId)
       pointers.set(event.pointerId, { x, y })
-      if (from) {
+      if (from && (from.x !== x || from.y !== y)) {
         strokes.push(from.x, from.y, x, y)
+        const now = performance.now()
+        const locked = message !== null && (!spelled || now < protectedUntil)
+        const fresh = stirs.move(now)
+        // Stirring around a protected word does not request another message.
+        // Once the hold ends, even an ongoing movement can release the word
+        // and begin the next stir.
+        if (!locked && (fresh || message)) {
+          queue.stir()
+          reletter()
+        }
+        stirring = true
+        if (message && !locked) {
+          message = null
+          spelled = false
+          protectedUntil = 0
+          scatterSoup(soup)
+          root.setAttribute("aria-label", LABEL)
+        }
         settled = false
         run()
       }
@@ -115,6 +198,24 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
         run()
       } else {
         pause()
+        reletter()
+      }
+    })
+    // Someone has just responded: their first names are the next message.
+    const unhear = onSoupGuests((names) => {
+      const guests = guestSoupMessage(names)
+      // Not the letters of a message that is there to be read.
+      const needed =
+        guests &&
+        (reletterSoup(chars, guests, undefined, (n) => soup.hold[n] > 0) ??
+          reletterSoup(chars, guests))
+      if (!guests || !needed) {
+        return
+      }
+      queue.greet(guests)
+      changes = needed
+      if (!onScreen) {
+        reletter()
       }
     })
     const settle = () => {
@@ -131,15 +232,18 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
     root.addEventListener("pointerdown", stir)
     root.addEventListener("pointermove", stir)
     root.addEventListener("pointerleave", lift)
+    root.addEventListener("pointerup", lift)
     root.addEventListener("pointercancel", lift)
 
     return () => {
       pause()
       observer.disconnect()
+      unhear()
       stillness.removeEventListener("change", settle)
       root.removeEventListener("pointerdown", stir)
       root.removeEventListener("pointermove", stir)
       root.removeEventListener("pointerleave", lift)
+      root.removeEventListener("pointerup", lift)
       root.removeEventListener("pointercancel", lift)
     }
   }, [])
@@ -151,7 +255,7 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
       ref={rootRef}
       data-slot="alphabet-soup"
       role="img"
-      aria-label="A bowl of alphabet soup."
+      aria-label={LABEL}
       // Vertical swipes still scroll the page; anything else stirs.
       className={cn(
         "relative aspect-square touch-pan-y select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",

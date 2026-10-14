@@ -28,6 +28,7 @@ import {
   type RecipePhotoDraft,
   type RecipePhotoRef,
 } from "@/lib/recipe-photo"
+import { announceSoupGuests } from "@/lib/soup-guests"
 import {
   NAME_MAX_LENGTH,
   SOUP_NAME_MAX_LENGTH,
@@ -128,6 +129,14 @@ function RsvpForm({
     }
     if (state.status === "unauthorized") outcome.current?.focus()
   }, [state])
+
+  // The bowl of soup above this form spells the names of whoever has just
+  // responded. The edit page has no bowl.
+  React.useEffect(() => {
+    if (state.status === "attending" && !editing) {
+      announceSoupGuests([state.name, state.secondName])
+    }
+  }, [state, editing])
 
   if (state.status === "attending" || state.status === "cancelled") {
     return <RsvpConfirmation state={state} editing={editing} />

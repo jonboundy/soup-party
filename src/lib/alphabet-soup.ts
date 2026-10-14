@@ -13,8 +13,12 @@ export type SoupLetter = {
   angle: number;
 };
 
-// Every letter once, then enough again to spell SOUP PARTY, then a few vowels.
-const SOUP_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "SOUPPARTY" + "AEEIO";
+/** Where a letter goes when the soup spells something. */
+export type SoupPlace = { letter: number; x: number; y: number; angle: number };
+
+// Every letter once, then enough again to spell SOUP PARTY, then a few vowels,
+// the second L of STILL and the second N of BRING SPOON.
+const SOUP_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "SOUPPARTY" + "AEEILNO";
 
 /** Half the room a letter keeps to itself. */
 export const LETTER_RADIUS = 0.1;
@@ -52,6 +56,21 @@ const REST_SPEED = 0.01;
 const REST_SPIN = 0.6;
 const REST_OVERLAP = 0.002;
 
+/** Seconds over which a letter's pull toward its place in a word eases in. */
+const SPELL_TIME = 1.4;
+/** Seconds for a letter to close about two thirds of the way to its place. */
+const SPELL_EASE = 0.45;
+// A letter nearly in place closes the rest at these speeds, so that it gets
+// there: a radius a second, and degrees a second.
+const SPELL_CRAWL = 0.04;
+const SPELL_TURN = 12;
+/**
+ * How far the middle of a loose letter keeps from the middle of a letter in a
+ * word: more room than loose letters give each other, which is what sets the
+ * word apart.
+ */
+const WORD_ROOM = 0.29;
+
 const DEGREES = 180 / Math.PI;
 
 export type Soup = {
@@ -62,6 +81,25 @@ export type Soup = {
   vx: Float64Array;
   vy: Float64Array;
   spin: Float64Array;
+  /** Where each letter was before the others last made room for it. */
+  wasX: Float64Array;
+  wasY: Float64Array;
+  /**
+   * How far each letter has left the broth for its place in a word: 0 is
+   * adrift, as every letter is unless the soup is spelling something, and 1
+   * is held.
+   */
+  hold: Float64Array;
+  homeX: Float64Array;
+  homeY: Float64Array;
+  homeAngle: Float64Array;
+  /** The box around the word being spelled that loose letters are kept out of. */
+  word: { left: number; right: number; top: number; bottom: number };
+  /** How many letters are in the word being spelled, and how many of them are not yet in place. */
+  spelling: number;
+  astray: number;
+  /** The fastest the broth is moving anywhere, in radii a second. */
+  speed: number;
   /** Indices of the cells inside the bowl. */
   cells: Int32Array;
   wet: Uint8Array;
@@ -154,6 +192,16 @@ export function createSoup(letters: readonly SoupLetter[]): Soup {
     vx: new Float64Array(letters.length),
     vy: new Float64Array(letters.length),
     spin: new Float64Array(letters.length),
+    wasX: new Float64Array(letters.length),
+    wasY: new Float64Array(letters.length),
+    hold: new Float64Array(letters.length),
+    homeX: new Float64Array(letters.length),
+    homeY: new Float64Array(letters.length),
+    homeAngle: new Float64Array(letters.length),
+    word: { left: 0, right: 0, top: 0, bottom: 0 },
+    spelling: 0,
+    astray: 0,
+    speed: 0,
     cells: Int32Array.from(cells),
     wet,
     u: new Float32Array(SIZE * SIZE),
@@ -219,6 +267,35 @@ export function stirSoup(
     u[cell] += (stirU - u[cell]) * hold;
     v[cell] += (stirV - v[cell]) * hold;
   }
+}
+
+/**
+ * Starts drawing letters out of the broth to the places given, where they
+ * stay until `scatterSoup`. The other letters keep clear of them.
+ */
+export function spellSoup(soup: Soup, places: readonly SoupPlace[]) {
+  scatterSoup(soup);
+  const { word } = soup;
+  word.left = word.top = Infinity;
+  word.right = word.bottom = -Infinity;
+  for (const place of places) {
+    // Any grip at all marks the letter as part of the word.
+    soup.hold[place.letter] = Number.MIN_VALUE;
+    soup.homeX[place.letter] = place.x;
+    soup.homeY[place.letter] = place.y;
+    soup.homeAngle[place.letter] = place.angle;
+    word.left = Math.min(word.left, place.x - WORD_ROOM);
+    word.right = Math.max(word.right, place.x + WORD_ROOM);
+    word.top = Math.min(word.top, place.y - WORD_ROOM);
+    word.bottom = Math.max(word.bottom, place.y + WORD_ROOM);
+  }
+  soup.spelling = soup.astray = places.length;
+}
+
+/** Lets go of a word's letters, which are the broth's again from where they are. */
+export function scatterSoup(soup: Soup) {
+  soup.hold.fill(0);
+  soup.spelling = soup.astray = 0;
 }
 
 // The broth carries its own motion along, slowing as it goes.
@@ -321,59 +398,123 @@ function readFlow(soup: Soup, x: number, y: number) {
 
 // Returns whether any letter is still on the move.
 function moveLetters(soup: Soup, dt: number) {
-  const { letters, x, y, angle, vx, vy, spin } = soup;
+  const { letters, x, y, angle, vx, vy, spin, wasX, wasY, hold, homeX, homeY, homeAngle, word } =
+    soup;
   const turn = 1 - Math.exp(-dt / LETTER_TURN_LAG);
   let moving = false;
+  let astray = 0;
 
   for (let n = 0; n < letters; n++) {
-    // A letter goes where the broth goes: its inertia is the broth's. The
-    // broth is read half a step ahead, which keeps a letter on a curved
-    // current instead of slowly working outwards to the wall.
-    readFlow(soup, x[n], y[n]);
-    readFlow(soup, x[n] + 0.5 * dt * flow.u, y[n] + 0.5 * dt * flow.v);
-    vx[n] = flow.u;
-    vy[n] = flow.v;
+    if (hold[n] === 0) {
+      // A letter goes where the broth goes: its inertia is the broth's. The
+      // broth is read half a step ahead, which keeps a letter on a curved
+      // current instead of slowly working outwards to the wall.
+      readFlow(soup, x[n], y[n]);
+      readFlow(soup, x[n] + 0.5 * dt * flow.u, y[n] + 0.5 * dt * flow.v);
+      vx[n] = flow.u;
+      vy[n] = flow.v;
 
-    // It turns at half the broth's curl around it, as anything afloat does,
-    // though not at once.
-    readFlow(soup, x[n] + CELL, y[n]);
-    let curl = flow.v;
-    readFlow(soup, x[n] - CELL, y[n]);
-    curl -= flow.v;
-    readFlow(soup, x[n], y[n] + CELL);
-    curl -= flow.u;
-    readFlow(soup, x[n], y[n] - CELL);
-    curl += flow.u;
-    spin[n] += ((curl / (4 * CELL)) * DEGREES - spin[n]) * turn;
+      // It turns at half the broth's curl around it, as anything afloat does,
+      // though not at once.
+      readFlow(soup, x[n] + CELL, y[n]);
+      let curl = flow.v;
+      readFlow(soup, x[n] - CELL, y[n]);
+      curl -= flow.v;
+      readFlow(soup, x[n], y[n] + CELL);
+      curl -= flow.u;
+      readFlow(soup, x[n], y[n] - CELL);
+      curl += flow.u;
+      spin[n] += ((curl / (4 * CELL)) * DEGREES - spin[n]) * turn;
 
-    x[n] += vx[n] * dt;
-    y[n] += vy[n] * dt;
-    angle[n] += spin[n] * dt;
-    moving ||=
-      vx[n] * vx[n] + vy[n] * vy[n] > REST_SPEED ** 2 ||
-      Math.abs(spin[n]) > REST_SPIN;
+      x[n] += vx[n] * dt;
+      y[n] += vy[n] * dt;
+      angle[n] += spin[n] * dt;
+      moving ||=
+        vx[n] * vx[n] + vy[n] * vy[n] > REST_SPEED ** 2 ||
+        Math.abs(spin[n]) > REST_SPIN;
+      continue;
+    }
+
+    // A letter of a word follows only its place, even while someone stirs
+    // the broth around it. The pull eases in, then eases off as it arrives.
+    vx[n] = vy[n] = spin[n] = 0;
+    hold[n] = Math.min(hold[n] + dt / SPELL_TIME, 1);
+    const grip = hold[n] * hold[n] * (3 - 2 * hold[n]);
+    const pull = 1 - Math.exp((-dt * grip) / SPELL_EASE);
+
+    const dx = homeX[n] - x[n];
+    const dy = homeY[n] - y[n];
+    const away = Math.hypot(dx, dy);
+    const step = Math.min(Math.max(away * pull, SPELL_CRAWL * grip * dt), away);
+    if (away > 0) {
+      x[n] += (dx / away) * step;
+      y[n] += (dy / away) * step;
+    }
+    // The shorter way round.
+    const askew = homeAngle[n] - angle[n];
+    const off = askew - 360 * Math.round(askew / 360);
+    const twist = Math.min(Math.max(Math.abs(off) * pull, SPELL_TURN * grip * dt), Math.abs(off));
+    angle[n] += Math.sign(off) * twist;
+
+    if (hold[n] < 1 || step < away || twist < Math.abs(off)) {
+      astray++;
+    } else {
+      x[n] = homeX[n];
+      y[n] = homeY[n];
+    }
   }
+  soup.astray = astray;
+  moving ||= astray > 0;
 
   // Letters that have drifted onto each other ease apart.
   const ease = 1 - Math.exp(-dt / OVERLAP_EASE);
+  wasX.set(x);
+  wasY.set(y);
   for (let a = 0; a < letters; a++) {
     for (let b = a + 1; b < letters; b++) {
       const dx = x[b] - x[a];
       const dy = y[b] - y[a];
       const gap = dx * dx + dy * dy;
-      if (gap >= 4 * LETTER_RADIUS ** 2) {
+      // The letters of a word are put where they go, not jostled there.
+      if (gap >= WORD_ROOM ** 2 || (hold[a] > 0 && hold[b] > 0)) {
         continue;
       }
+      // A word takes its room as it takes its letters.
+      const held = Math.max(hold[a], hold[b]);
+      const worded = held > 0;
+      const room =
+        2 * LETTER_RADIUS + (WORD_ROOM - 2 * LETTER_RADIUS) * held * held * (3 - 2 * held);
       const distance = Math.sqrt(gap);
-      const overlap = 2 * LETTER_RADIUS - distance;
-      const push = 0.5 * overlap * ease;
+      const overlap = room - distance;
+      if (overlap <= 0) {
+        continue;
+      }
       const nx = distance > 0 ? dx / distance : 1;
       const ny = distance > 0 ? dy / distance : 0;
-      x[a] -= nx * push;
-      y[a] -= ny * push;
-      x[b] += nx * push;
-      y[b] += ny * push;
-      moving ||= overlap > REST_OVERLAP;
+      if (worded) {
+        // A letter of a word does not give way; the other one does, and it
+        // is sent straight up or down and out of the word, whichever letter
+        // it has met. Pushed away from each in turn, it could come to rest
+        // between two lines of them, or between a line's end and the bowl.
+        const loose = hold[a] > 0 ? b : a;
+        if (
+          x[loose] > word.left &&
+          x[loose] < word.right &&
+          y[loose] > word.top &&
+          y[loose] < word.bottom
+        ) {
+          y[loose] += (y[loose] < (word.top + word.bottom) / 2 ? -1 : 1) * overlap * ease;
+        } else {
+          x[loose] += (loose === b ? nx : -nx) * overlap * ease;
+          y[loose] += (loose === b ? ny : -ny) * overlap * ease;
+        }
+      } else {
+        const push = 0.5 * overlap * ease;
+        x[a] -= nx * push;
+        y[a] -= ny * push;
+        x[b] += nx * push;
+        y[b] += ny * push;
+      }
     }
   }
 
@@ -384,6 +525,10 @@ function moveLetters(soup: Soup, dt: number) {
       x[n] *= LETTER_LIMIT / distance;
       y[n] *= LETTER_LIMIT / distance;
     }
+    // Still making room, if it moved as far as one overlap worth easing
+    // would move it. Letters wedged where no room can be made do not move,
+    // and are left as they are.
+    moving ||= Math.hypot(x[n] - wasX[n], y[n] - wasY[n]) > 0.5 * REST_OVERLAP * ease;
   }
 
   return moving;
@@ -399,6 +544,6 @@ export function stepSoup(soup: Soup, seconds: number): boolean {
     return true;
   }
   advect(soup, dt);
-  const flowing = conserve(soup) > REST_SPEED ** 2;
-  return moveLetters(soup, dt) || flowing;
+  soup.speed = Math.sqrt(conserve(soup));
+  return moveLetters(soup, dt) || soup.speed > REST_SPEED;
 }
