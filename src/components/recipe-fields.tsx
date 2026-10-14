@@ -32,7 +32,7 @@ function recipeDraft(soup: GuestSoup | null | undefined, photos: boolean): Recip
 }
 
 const kinds: { kind: RecipeKind; label: string; description: string }[] = [
-  { kind: "none", label: "None", description: "Optional. A link, the recipe written out, or photos of it." },
+  { kind: "none", label: "None", description: "Optional. Useful to anyone with allergies, or anyone who wants to make it again." },
   { kind: "link", label: "Link", description: "The address of the recipe. The soup list will link to it." },
   { kind: "text", label: "Text", description: "The recipe, written out. Anyone can read it from the soup list." },
   { kind: "photos", label: "Photos", description: "Anyone can see them from the soup list." },
