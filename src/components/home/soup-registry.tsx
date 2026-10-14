@@ -5,7 +5,6 @@ import { Container } from "@/components/layout/container"
 import {
   Section,
   SectionDescription,
-  SectionEyebrow,
   SectionHeader,
   SectionTitle,
 } from "@/components/layout/section"
@@ -72,7 +71,6 @@ async function SoupRegistry() {
     <Section id="soups" aria-labelledby="soups-title" className="border-t">
       <Container>
         <SectionHeader reveal>
-          <SectionEyebrow>Registry</SectionEyebrow>
           <SectionTitle id="soups-title">The soups.</SectionTitle>
         </SectionHeader>
         {list}
