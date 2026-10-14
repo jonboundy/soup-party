@@ -5,11 +5,20 @@ import {
   LETTER_RADIUS,
   createSoup,
   layoutSoupLetters,
+  scatterSoup,
+  spellSoup,
   stepSoup,
   stirSoup,
   swirlSoup,
   type Soup,
 } from "@/lib/alphabet-soup";
+import {
+  SOUP_MESSAGES,
+  SOUP_PRAISE,
+  guestSoupMessage,
+  placeSoupMessage,
+  reletterSoup,
+} from "@/lib/soup-messages";
 
 const FRAME = 1 / 60;
 
@@ -48,9 +57,9 @@ describe("layoutSoupLetters", () => {
     expect(layoutSoupLetters(undefined, 5)).not.toEqual(letters);
   });
 
-  it("has the letters to spell SOUP PARTY", () => {
+  it("has the whole alphabet, and the letters to spell SOUP PARTY as well", () => {
     const spare = letters.map((letter) => letter.char);
-    for (const char of "SOUPPARTY") {
+    for (const char of "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + "SOUPPARTY") {
       expect(spare).toContain(char);
       spare.splice(spare.indexOf(char), 1);
     }
@@ -218,6 +227,157 @@ describe("stepSoup", () => {
     expect(stepSoup(soup, 0)).toBe(true);
     expect(stepSoup(soup, -1)).toBe(true);
     expect(Array.from(soup.x)).toEqual(before);
+  });
+});
+
+describe("spellSoup", () => {
+  const letters = layoutSoupLetters();
+  const chars = letters.map((letter) => letter.char);
+
+  // Stirs a soup and has it spell a message as it slows, as the bowl does.
+  function spell(message = SOUP_MESSAGES[0], from = chars) {
+    const soup = createSoup(letters);
+    stirRound(soup);
+    while (soup.speed > 0.2) {
+      stepSoup(soup, FRAME);
+    }
+    const places = placeSoupMessage(message, from, soup.x, soup.y)!;
+    spellSoup(soup, places);
+    return { soup, places };
+  }
+
+  it("draws the letters to their places and holds them there", () => {
+    const { soup, places } = spell();
+    expect(soup.spelling).toBe(9);
+    expect(soup.astray).toBe(9);
+
+    expect(settle(soup)).toBeLessThan(10);
+    expect(soup.astray).toBe(0);
+    for (const place of places) {
+      expect(soup.x[place.letter]).toBe(place.x);
+      expect(soup.y[place.letter]).toBe(place.y);
+      // Whichever way round it got there.
+      expect((soup.angle[place.letter] - place.angle) % 360).toBeCloseTo(0, 6);
+    }
+  });
+
+  it("forms the word in a few seconds, without hurrying", () => {
+    const { soup, places } = spell();
+    const { letter, x, y } = places[0];
+    const start = Math.hypot(soup.x[letter] - x, soup.y[letter] - y);
+
+    let seconds = 0;
+    let fastest = 0;
+    while (soup.astray > 0) {
+      const from = [soup.x[letter], soup.y[letter]];
+      stepSoup(soup, FRAME);
+      seconds += FRAME;
+      fastest = Math.max(
+        fastest,
+        Math.hypot(soup.x[letter] - from[0], soup.y[letter] - from[1]) / FRAME,
+      );
+      // It only ever gets nearer: no overshoot, and no bounce.
+      expect(Math.hypot(soup.x[letter] - x, soup.y[letter] - y)).toBeLessThan(start + 0.05);
+    }
+
+    expect(seconds).toBeGreaterThan(1.5);
+    expect(seconds).toBeLessThan(5);
+    expect(fastest).toBeLessThan(1.5);
+  });
+
+  it("keeps the other letters clear of the word, and in the bowl", () => {
+    for (const message of [...SOUP_MESSAGES, SOUP_PRAISE]) {
+      const { soup } = spell(message);
+      settle(soup);
+
+      for (let a = 0; a < soup.letters; a++) {
+        expect(Math.hypot(soup.x[a], soup.y[a])).toBeLessThanOrEqual(LETTER_LIMIT + 1e-9);
+        for (let b = 0; b < soup.letters; b++) {
+          if (soup.hold[a] > 0 && soup.hold[b] === 0) {
+            expect(
+              Math.hypot(soup.x[a] - soup.x[b], soup.y[a] - soup.y[b]),
+            ).toBeGreaterThan(0.27);
+          }
+        }
+      }
+    }
+  });
+
+  it("comes to rest however long the names", () => {
+    for (const names of [["Christine", "Alexander"], ["Mmmmmmmmm", "Wwwwwwwww"], ["Al"]]) {
+      const guests = guestSoupMessage(names)!;
+      const changes = reletterSoup(chars, guests)!;
+      const { soup } = spell(guests, chars.map((char, index) => changes.get(index) ?? char));
+
+      expect(settle(soup)).toBeLessThan(12);
+      expect(soup.astray).toBe(0);
+    }
+  });
+
+  it("holds the word against the broth until it is let go", () => {
+    const { soup, places } = spell();
+    settle(soup);
+
+    stirRound(soup);
+    for (const place of places) {
+      expect(soup.x[place.letter]).toBe(place.x);
+      expect(soup.y[place.letter]).toBe(place.y);
+    }
+
+    scatterSoup(soup);
+    expect(soup.spelling).toBe(0);
+    stirRound(soup);
+    const moved = places.filter(
+      (place) => Math.hypot(soup.x[place.letter] - place.x, soup.y[place.letter] - place.y) > 0.1,
+    );
+    expect(moved.length).toBeGreaterThan(6);
+  });
+
+  it("protects forming letters from stirring while loose letters still move", () => {
+    const calm = createSoup(letters);
+    const stirred = createSoup(letters);
+    const places = placeSoupMessage(SOUP_MESSAGES[0], chars, calm.x, calm.y)!;
+    spellSoup(calm, places);
+    spellSoup(stirred, places);
+
+    for (let frame = 0; frame < 240; frame++) {
+      const from = frame / 60 * 2 * Math.PI;
+      const to = (frame + 1) / 60 * 2 * Math.PI;
+      stirSoup(stirred, 0.65 * Math.cos(from), 0.65 * Math.sin(from),
+        0.65 * Math.cos(to), 0.65 * Math.sin(to), FRAME);
+      stepSoup(calm, FRAME);
+      stepSoup(stirred, FRAME);
+      for (const { letter } of places) {
+        expect(stirred.x[letter]).toBe(calm.x[letter]);
+        expect(stirred.y[letter]).toBe(calm.y[letter]);
+        expect(stirred.angle[letter]).toBe(calm.angle[letter]);
+      }
+    }
+
+    expect(stirred.astray).toBe(0);
+    const loose = letters.filter((_, n) => stirred.hold[n] === 0);
+    expect(loose.length).toBeGreaterThan(0);
+    expect(letters.some((letter, n) => stirred.hold[n] === 0 &&
+      Math.hypot(stirred.x[n] - letter.x, stirred.y[n] - letter.y) > 0.2)).toBe(true);
+  });
+
+  it("forms the word about as fast at any frame rate", () => {
+    const run = (rate: number) => {
+      const soup = createSoup(letters);
+      spellSoup(soup, placeSoupMessage(SOUP_MESSAGES[0], chars, soup.x, soup.y)!);
+      let seconds = 0;
+      do {
+        stepSoup(soup, 1 / rate);
+        seconds += 1 / rate;
+      } while (soup.astray > 0);
+      return seconds;
+    };
+    const usual = run(60);
+
+    expect(run(30) / usual).toBeGreaterThan(0.9);
+    expect(run(30) / usual).toBeLessThan(1.1);
+    expect(run(120) / usual).toBeGreaterThan(0.9);
+    expect(run(120) / usual).toBeLessThan(1.1);
   });
 });
 
