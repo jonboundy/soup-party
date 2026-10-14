@@ -18,7 +18,7 @@ Soup Party is a small, exceptionally well-designed RSVP website for a casual sou
 
 **Voice:** concise, literal, faintly over-formal. No jokes at guests' expense. Default copy strings:
 - Hero: "Soup is happening.", and since 2026-10-13 the event's title, "Soup Party 2: Electric Boogaloo", in uppercase above it, with "Electric Boogaloo" as a tomato neon sign that sputters on as the page loads and flickers now and then, like an old sign (see [scope and tickets](scope-and-tickets.md))
-- Supporting: "Everyone brings soup. Everyone eats soup."
+- Supporting: "Everyone brings soup. Everyone eats soup.", followed since 2026-10-14 by "Also bird night." (see [scope and tickets](scope-and-tickets.md))
 - Primary action: "I'll be there" or "RSVP"
 - Registry title: "The soups" (no full stop since 2026-10-13; Jon keeps one only on the hero. The RSVP section is headed "RSVP")
 - Empty registry: "No soups yet."
