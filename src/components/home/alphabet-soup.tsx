@@ -17,7 +17,9 @@ import {
   guestSoupMessage,
   placeSoupMessage,
   reletterSoup,
+  SOUP_INVITATION,
   soupMessageQueue,
+  soupMessageSpots,
   soupStirTracker,
   type SoupMessage,
 } from "@/lib/soup-messages"
@@ -35,20 +37,24 @@ const WORD_HOLD = 3000
 
 const LABEL = "A bowl of alphabet soup."
 
-const letters = layoutSoupLetters()
+const spells = (message: SoupMessage) => `${LABEL} Some letters spell ${message.label}.`
+
+// Served spelling an invitation.
+const letters = layoutSoupLetters(undefined, undefined, soupMessageSpots(SOUP_INVITATION))
 
 function place(x: number, y: number, angle: number) {
   return `translate(${(x * UNIT).toFixed(2)} ${(y * UNIT).toFixed(2)}) rotate(${angle.toFixed(1)})`
 }
 
 // A bowl of alphabet soup, seen from above, that can be stirred with a cursor
-// or a finger. The server renders it complete and still, which is how it stays
-// without JavaScript and with reduced motion. Otherwise it turns a little when
-// first seen, and runs only while it is on screen and has not yet settled.
+// or a finger. The server renders it complete and still, with some of the
+// letters spelling STIR ME, which is how it stays without JavaScript and with
+// reduced motion. Otherwise it turns a little when first seen, and runs only
+// while it is on screen and has not yet settled.
 //
-// Now and then a stir ends with some of the letters in a message: see
-// `soupMessageQueue` for which stirs and which messages. The next stir breaks
-// it up.
+// The first stir breaks up STIR ME. Now and then a stir ends with some of the
+// letters in a message: see `soupMessageQueue` for which stirs and which
+// messages. The next stir breaks it up.
 function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
   const rootRef = React.useRef<HTMLDivElement>(null)
   const pastaRef = React.useRef<SVGGElement>(null)
@@ -80,9 +86,11 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
     let changes: Map<number, string> | null = null
     let stirring = false
     // The message forming or formed, and whether it has finished forming.
-    let message: SoupMessage | null = null
-    let spelled = false
+    // The invitation is formed already, and the first stir may break it up.
+    let message: SoupMessage | null = SOUP_INVITATION
+    let spelled = true
     let protectedUntil = 0
+    spellSoup(soup, placeSoupMessage(SOUP_INVITATION, chars, soup.x, soup.y)!, true)
 
     // Letters change while nobody can see which: out of view, or failing
     // that as a stir sets them all moving.
@@ -129,7 +137,7 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
         protectedUntil = now + WORD_HOLD
         queue.shown()
         // Named, for anyone who cannot see it, but not announced.
-        root.setAttribute("aria-label", `${LABEL} Some letters spell ${message.label}.`)
+        root.setAttribute("aria-label", spells(message))
       }
 
       for (let n = 0; n < soup.letters; n++) {
@@ -297,7 +305,7 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
       ref={rootRef}
       data-slot="alphabet-soup"
       role="img"
-      aria-label={LABEL}
+      aria-label={spells(SOUP_INVITATION)}
       // Clip hit testing to the circle so its empty corners still scroll.
       className={cn(
         "relative aspect-square select-none data-[stirrable]:touch-pinch-zoom [clip-path:circle(50%)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",

@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import { LETTER_LIMIT, layoutSoupLetters } from "@/lib/alphabet-soup";
 import {
   LINE_LENGTH,
+  SOUP_INVITATION,
   SOUP_MESSAGES,
-  SOUP_PRAISE,
   guestSoupMessage,
   placeSoupMessage,
   reletterSoup,
   soupMessageQueue,
+  soupMessageSpots,
   soupStirTracker,
   type SoupMessage,
 } from "@/lib/soup-messages";
@@ -63,7 +64,7 @@ describe("SOUP_MESSAGES", () => {
   });
 
   it("can all be spelled with the soup as served", () => {
-    for (const message of [...SOUP_MESSAGES, SOUP_PRAISE]) {
+    for (const message of [...SOUP_MESSAGES, SOUP_INVITATION]) {
       expect(spelled(message, chars)).toBe(message.lines.join(""));
       for (const line of message.lines) {
         expect(line).toMatch(/^[A-Z]+$/);
@@ -106,7 +107,7 @@ describe("reletterSoup", () => {
   it("finds the letters a name is short of", () => {
     const guests = guestSoupMessage(["Hannah", "Zoë"])!;
     const changes = reletterSoup(chars, guests)!;
-    // BRING SPOON already needs two Ns; HANNAH still needs another H.
+    // The soup has two Ns already; HANNAH still needs another H.
     expect([...changes.values()].sort()).toEqual(["H"]);
 
     const changed = chars.map((char, index) => changes.get(index) ?? char);
@@ -119,7 +120,7 @@ describe("reletterSoup", () => {
       const changes = reletterSoup(chars, guests)!;
       const changed = chars.map((char, index) => changes.get(index) ?? char);
 
-      for (const message of [...SOUP_MESSAGES, SOUP_PRAISE, guests]) {
+      for (const message of [...SOUP_MESSAGES, guests]) {
         expect(spelled(message, changed)).toBe(message.lines.join(""));
       }
     }
@@ -134,6 +135,15 @@ describe("reletterSoup", () => {
     ).toBeNull();
     expect(reletterSoup(["S", "O", "U", "P", "X"], guestSoupMessage(["Bo"])!, [])).toEqual(
       new Map([[0, "B"]]),
+    );
+  });
+});
+
+describe("soupMessageSpots", () => {
+  it("are where placeSoupMessage puts the letters", () => {
+    const places = placeSoupMessage(SOUP_INVITATION, chars, x, y)!;
+    expect(soupMessageSpots(SOUP_INVITATION)).toEqual(
+      places.map(({ letter, ...place }) => ({ char: chars[letter], ...place })),
     );
   });
 });
@@ -205,14 +215,19 @@ describe("soupMessageQueue", () => {
   }
 
   it("ends each stir in a message, in order and round again", () => {
-    expect(stir(soupMessageQueue(), 8)).toEqual([
+    expect(stir(soupMessageQueue(), 13)).toEqual([
       "SOUP PARTY",
       "GOOD SOUP",
+      "I AM SOUP",
       "GOOD STIR",
-      "BRING SPOON",
+      "BIRD NIGHT",
+      "BRING GAMES",
+      "I SEE YOU",
       "MORE SOUP",
       "STILL SOUP",
+      "ARE YOU DONE",
       "BRING SOUP",
+      "PLEASE STOP",
       "SOUP PARTY",
     ]);
   });
@@ -236,15 +251,20 @@ describe("soupMessageQueue", () => {
     const queue = soupMessageQueue();
     queue.greet(guestSoupMessage(["Jon", "Gigi"])!);
 
-    expect(stir(queue, 10)).toEqual([
+    expect(stir(queue, 15)).toEqual([
       "JON and GIGI",
       "SOUP PARTY",
       "GOOD SOUP",
+      "I AM SOUP",
       "GOOD STIR",
-      "BRING SPOON",
+      "BIRD NIGHT",
+      "BRING GAMES",
+      "I SEE YOU",
       "MORE SOUP",
       "STILL SOUP",
+      "ARE YOU DONE",
       "BRING SOUP",
+      "PLEASE STOP",
       "JON and GIGI",
       "SOUP PARTY",
     ]);
@@ -252,48 +272,18 @@ describe("soupMessageQueue", () => {
 
   it("does not spell a guest twice running", () => {
     const queue = soupMessageQueue();
-    stir(queue, 7);
+    stir(queue, SOUP_MESSAGES.length);
     // Every message has had its turn, so a guest's would be next anyway.
     queue.greet(guestSoupMessage(["Jon"])!);
     expect(stir(queue, 2)).toEqual(["JON", "SOUP PARTY"]);
   });
 
-  it("spells GOOD JOB once after fifteen stirs, then resumes the rotation", () => {
+  it("keeps a guest next when they RSVP while a message is forming", () => {
     const queue = soupMessageQueue();
-    expect(stir(queue, 14)).toEqual([...SOUP_MESSAGES, ...SOUP_MESSAGES].map(message => message.label));
-    expect(stir(queue, 1)).toEqual(["GOOD JOB"]);
-    const later = stir(queue, 80).filter(Boolean);
-    expect(later[0]).toBe("SOUP PARTY");
-    expect(later).not.toContain("GOOD JOB");
-  });
-
-  it("keeps praise next when a stir interrupts it before it forms", () => {
-    const queue = soupMessageQueue();
-    stir(queue, 14);
     queue.stir();
-    expect(queue.next()).toBe(SOUP_PRAISE);
-    queue.stir();
-    expect(queue.next()).toBe(SOUP_PRAISE);
-    queue.shown();
-    expect(stir(queue, 1)).toEqual(["SOUP PARTY"]);
-  });
-
-  it("greets a guest before earned praise, without using up either", () => {
-    const queue = soupMessageQueue();
-    stir(queue, 14);
-    queue.greet(guestSoupMessage(["Hannah"])!);
-    expect(stir(queue, 2)).toEqual(["HANNAH", "GOOD JOB"]);
-    expect(stir(queue, 1)).toEqual(["SOUP PARTY"]);
-  });
-
-  it("keeps a guest next when they RSVP while praise is forming", () => {
-    const queue = soupMessageQueue();
-    stir(queue, 14);
-    queue.stir();
-    expect(queue.next()).toBe(SOUP_PRAISE);
+    expect(queue.next()?.label).toBe("SOUP PARTY");
     queue.greet(guestSoupMessage(["Hannah"])!);
     queue.shown();
-    expect(stir(queue, 1)).toEqual(["HANNAH"]);
-    expect(stir(queue, 1)).toEqual(["SOUP PARTY"]);
+    expect(stir(queue, 2)).toEqual(["HANNAH", "GOOD SOUP"]);
   });
 });
