@@ -20,7 +20,7 @@ function SiteHeader({
       {...props}
     >
       <Container className="flex h-(--header-height) items-center justify-between gap-2 sm:gap-4">
-        <Link href="/" className="group/wordmark -mx-2 rounded-md px-2 py-1.5">
+        <Link href="/" className="group/wordmark -mx-2 flex rounded-md px-2 py-1.5">
           <Wordmark />
         </Link>
         {children && (
