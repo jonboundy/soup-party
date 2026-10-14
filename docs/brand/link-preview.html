@@ -1,1 +1,34 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>Share preview 2 · The sequel</title><style>*{box-sizing:border-box}html,body{margin:0;width:1200px;height:630px;overflow:hidden}body{background:#f9f6f1;color:#29231f;font-family:Arial,Helvetica,sans-serif}.frame{position:relative;width:1200px;height:630px;padding:58px 68px}.label{font-size:17px;letter-spacing:2.4px;text-transform:uppercase}.domain{position:absolute;bottom:45px;left:68px;font-size:17px;color:#786d61}.date{position:absolute;bottom:45px;right:68px;font-size:17px;color:#786d61}.bowl{position:absolute;width:480px;height:480px;right:22px;top:72px}h1{font-weight:500;letter-spacing:-5px;line-height:1.04;margin:0}.sub{font-size:24px;line-height:1.5;color:#796d61}body{background:#24201d;color:#f9f6f1}.label{color:#bbae9c}.big2{position:absolute;right:35px;top:8px;font-size:595px;line-height:1;color:#3c3029;font-weight:700;letter-spacing:-50px}.neon{position:absolute;left:66px;top:178px;font-size:80px;line-height:1.03;letter-spacing:1px;font-weight:500;text-transform:uppercase;color:#ff9275;text-shadow:0 0 2px #ffd2bf,0 0 17px #e36c46,0 0 45px #b9432d70}.small-bowl{position:absolute;right:97px;top:186px;width:295px;height:295px}.sub{position:absolute;left:68px;bottom:84px;font-size:23px;color:#c1b4a5}.domain,.date{color:#a69687}</style></head><body><div class="frame"><div class="big2" aria-hidden="true">2</div><div class="label">Soup Party 2:</div><h1 class="neon">Electric<br/>Boogaloo</h1><img class="small-bowl" src="share-bowl.svg" alt="Alphabet soup bowl"/><p class="sub">Everyone brings soup. Everyone eats soup.</p><div class="domain">soup.jonboundy.com</div><div class="date">November 21, 2026</div></div></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Link preview · Soup Party</title>
+<style>
+/* Geist ships with Next.js; run npm install before opening this file. */
+@font-face{font-family:Geist;src:local("Geist"),url("../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2") format("woff2");font-weight:100 900}
+*{box-sizing:border-box}
+html,body{margin:0;width:1200px;height:630px;overflow:hidden}
+body{position:relative;background:oklch(0.975 0.008 85);color:oklch(0.2 0.012 60);font-family:Geist,sans-serif}
+/* The bowl's body (rim to foot) and the capital height share the image's
+   middle line. The viewBox covers the body only, so the steam rises outside
+   it and plays no part in the alignment. The lockup is centred left to right
+   on its rendered pixels. */
+.bowl{position:absolute;left:160.4px;top:249.48px;width:198.24px;height:131.04px;overflow:visible}
+.word{position:absolute;left:409.43px;top:250.94px;margin:0;font-size:128px;font-weight:600;letter-spacing:-5px;line-height:1;white-space:nowrap}
+</style>
+</head>
+<body>
+<!-- The bowl from src/app/icon.svg, in its light colours. -->
+<svg class="bowl" xmlns="http://www.w3.org/2000/svg" viewBox="-41.3 -16.8 82.6 54.6" fill="none" stroke="oklch(0.2 0.012 60)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <g opacity="0.55">
+    <path d="M-15 -24c-7-8 7-12 0-21"/>
+    <path d="M0 -27c-7-8 7-12 0-21"/>
+    <path d="M15 -24c-7-8 7-12 0-21"/>
+  </g>
+  <path d="M-40 -8C-40 16-24 30 0 30S40 16 40 -8" fill="oklch(0.995 0.004 85)"/>
+  <ellipse cy="-8" rx="40" ry="7.5" fill="oklch(0.63 0.19 38)"/>
+  <path d="M-15 30.5l-2 6h34l-2-6" fill="oklch(0.995 0.004 85)"/>
+</svg>
+<p class="word">Soup Party</p>
+</body>
+</html>
