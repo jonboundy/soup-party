@@ -69,7 +69,7 @@ const colors = [
 
 const type = [
   { name: "type-display", sample: "Soup is happening." },
-  { name: "type-title", sample: "The soups." },
+  { name: "type-title", sample: "The soups" },
   { name: "type-heading", sample: "You're on the list." },
   { name: "type-lead", sample: "Everyone brings soup. Everyone eats soup." },
   {
