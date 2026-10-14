@@ -155,7 +155,12 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
     }
 
     const stir = (event: PointerEvent) => {
-      if (stillness.matches) {
+      if (
+        stillness.matches ||
+        (event.pointerType !== "mouse" &&
+          event.type === "pointermove" &&
+          !pointers.has(event.pointerId))
+      ) {
         return
       }
       const box = root.getBoundingClientRect()
@@ -188,8 +193,27 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
         run()
       }
     }
+    const take = (event: PointerEvent) => {
+      if (stillness.matches) {
+        return
+      }
+      // A finger or pen keeps its stroke even if it slips off the bowl.
+      // A mouse still stirs on hover, with no button held.
+      if (event.pointerType !== "mouse") {
+        root.setPointerCapture(event.pointerId)
+      }
+      stir(event)
+    }
     const lift = (event: PointerEvent) => {
       pointers.delete(event.pointerId)
+      if (root.hasPointerCapture(event.pointerId)) {
+        root.releasePointerCapture(event.pointerId)
+      }
+    }
+    const leave = (event: PointerEvent) => {
+      if (!root.hasPointerCapture(event.pointerId)) {
+        lift(event)
+      }
     }
 
     const observer = new IntersectionObserver(([entry]) => {
@@ -219,32 +243,50 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
       }
     })
     const settle = () => {
+      // Claim one-finger gestures only while the bowl can respond. Pinch
+      // zoom remains available, and static fallbacks scroll normally.
+      root.toggleAttribute("data-stirrable", !stillness.matches)
       if (stillness.matches) {
         pause()
         strokes.length = 0
+        for (const pointerId of pointers.keys()) {
+          if (root.hasPointerCapture(pointerId)) {
+            root.releasePointerCapture(pointerId)
+          }
+        }
+        pointers.clear()
       } else {
         run()
       }
     }
 
+    settle()
     observer.observe(root)
     stillness.addEventListener("change", settle)
-    root.addEventListener("pointerdown", stir)
+    root.addEventListener("pointerdown", take)
     root.addEventListener("pointermove", stir)
-    root.addEventListener("pointerleave", lift)
+    root.addEventListener("pointerleave", leave)
     root.addEventListener("pointerup", lift)
     root.addEventListener("pointercancel", lift)
+    root.addEventListener("lostpointercapture", lift)
 
     return () => {
       pause()
       observer.disconnect()
       unhear()
       stillness.removeEventListener("change", settle)
-      root.removeEventListener("pointerdown", stir)
+      root.removeAttribute("data-stirrable")
+      for (const pointerId of pointers.keys()) {
+        if (root.hasPointerCapture(pointerId)) {
+          root.releasePointerCapture(pointerId)
+        }
+      }
+      root.removeEventListener("pointerdown", take)
       root.removeEventListener("pointermove", stir)
-      root.removeEventListener("pointerleave", lift)
+      root.removeEventListener("pointerleave", leave)
       root.removeEventListener("pointerup", lift)
       root.removeEventListener("pointercancel", lift)
+      root.removeEventListener("lostpointercapture", lift)
     }
   }, [])
 
@@ -256,9 +298,9 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="alphabet-soup"
       role="img"
       aria-label={LABEL}
-      // Vertical swipes still scroll the page; anything else stirs.
+      // Clip hit testing to the circle so its empty corners still scroll.
       className={cn(
-        "relative aspect-square touch-pan-y select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
+        "relative aspect-square select-none data-[stirrable]:touch-pinch-zoom [clip-path:circle(50%)] [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         className
       )}
       {...props}
