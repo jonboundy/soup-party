@@ -25,7 +25,7 @@ Soup Party is a small, exceptionally well-designed RSVP website for a casual sou
 - RSVP confirmation: "You're on the list."
 - Soup confirmation: "Your soup has been registered."
 - Duplicate warning: "This soup has already been registered."
-- Footer: "© 2026 Soup Party"
+- Footer: "© 2026 Soup Party", and since 2026-10-13 "Sponsored by GoochBuddy and Opossum Catcher" (see [scope and tickets](scope-and-tickets.md))
 
 **Information architecture:** one primary landing page (wordmark/nav, high-impact hero, restrained soup imagery or interactive bowl, event details, visible registered soups, RSVP form/action, quiet footer). Supporting views: confirmation/edit view and protected host dashboard. Avoid unnecessary navigation levels.
 
