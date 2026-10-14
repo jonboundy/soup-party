@@ -82,20 +82,25 @@ function RsvpForm({
   savedPhotos = [],
   editToken,
   submissionToken,
+  remembered,
 }: {
   initial?: EditableRsvp
   /** The photos the saved recipe has, when editing. */
   savedPhotos?: RecipePhotoRef[]
   editToken?: string
   submissionToken?: string
+  remembered?: Extract<RsvpFormState, { editPath: string }>
 }) {
   const editing = !!editToken
+  // Cookie updates rerender this component during a save. Keep the original
+  // mount's meaning so a restored receipt never steals focus on page load.
+  const [restored] = React.useState(!!remembered)
   // Chosen photos wait here, as the other answers wait in their fields.
   const [photos, setPhotos] = React.useState(() => recipePhotoDraft(savedPhotos))
   const [state, formAction, pending] = React.useActionState<
     RsvpFormState,
     FormData
-  >((previous, data) => submit(previous, data, editing, photos), { status: "idle" })
+  >((previous, data) => submit(previous, data, editing, photos), remembered ?? { status: "idle" })
   // A cancelled RSVP keeps its answers. Saving them again restores it.
   const cancelled = initial?.status === "DECLINED"
   const [soupName, setSoupName] = React.useState(initial?.soup?.name ?? "")
@@ -139,7 +144,7 @@ function RsvpForm({
   }, [state, editing])
 
   if (state.status === "attending" || state.status === "cancelled") {
-    return <RsvpConfirmation state={state} editing={editing} />
+    return <RsvpConfirmation state={state} editing={editing} focusOnMount={!restored} />
   }
 
   if (state.status === "unauthorized") {

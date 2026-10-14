@@ -4,6 +4,7 @@ import { refresh, updateTag } from "next/cache";
 
 import { hashEditToken, isEditToken } from "@/lib/edit-token";
 import { readPublicSoups } from "@/lib/public-soups";
+import { rememberRsvp } from "@/lib/remembered-rsvp";
 import type { RecipePhotoState } from "@/lib/recipe-photo";
 import type { RsvpFormState } from "@/lib/rsvp-form";
 import { parseRsvp } from "@/lib/rsvp-schema";
@@ -115,6 +116,7 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
   }
 
   const { attendeeName: name, secondName, soup } = parsed.data;
+  await rememberRsvp(editToken!);
   // Edits may remove a soup or change its public contributor name.
   if (soup || editing) {
     updateTag("soups");
@@ -149,6 +151,7 @@ export async function cancelGuestRsvp(
   } catch {
     return { status: "failed" };
   }
+  await rememberRsvp(editToken);
   updateTag("soups");
   refresh();
   return {

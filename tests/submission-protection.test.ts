@@ -8,7 +8,7 @@ import { consumeRsvpAttempt, rateLimitIdentity, RSVP_RATE_LIMIT } from "@/lib/rs
 import { clearRsvps, soupNamed } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-vercel-forwarded-for": "192.0.2.1" }) }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ set: vi.fn() }), headers: async () => new Headers({ "x-vercel-forwarded-for": "192.0.2.1" }) }));
 
 const input = {
   attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING" as const,

@@ -3,6 +3,7 @@ import { cn } from "cn"
 
 import { buttonVariants } from "@/components/ui/button"
 import { SoupLinkLabel } from "@/components/layout/soup-link-label"
+import { RsvpLink } from "@/components/layout/rsvp-link"
 
 // The header cannot fit every link beside the wordmark below 360px, so the
 // narrowest screens drop Details, which there sits right under the hero's text.
@@ -26,12 +27,10 @@ function SiteNav() {
           {link.href === "/#soups" ? <SoupLinkLabel /> : link.label}
         </Link>
       ))}
-      <Link
-        href="/#rsvp"
+      <RsvpLink
+        newLabel="RSVP"
         className={cn(buttonVariants({ size: "sm" }), "ml-1.5 sm:ml-2")}
-      >
-        RSVP
-      </Link>
+      />
     </>
   )
 }
