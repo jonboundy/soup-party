@@ -17,15 +17,15 @@ Soup Party is a small, exceptionally well-designed RSVP website for a casual sou
 6. Independence — separate Next.js app at soup.jonboundy.com; do not touch the existing jonboundy.com website.
 
 **Voice:** concise, literal, faintly over-formal. No jokes at guests' expense. Default copy strings:
-- Hero: "Soup is happening."
+- Hero: "Soup is happening.", and since 2026-10-13 the event's title, "Soup Party 2: Electric Boogaloo", in uppercase above it, with "Electric Boogaloo" as a tomato neon sign that flickers on once (see [scope and tickets](scope-and-tickets.md))
 - Supporting: "Everyone brings soup. Everyone eats soup."
 - Primary action: "I'll be there" or "RSVP"
-- Registry title: "The soups."
+- Registry title: "The soups" (no full stop since 2026-10-13; Jon keeps one only on the hero. The RSVP section is headed "RSVP")
 - Empty registry: "No soups yet."
 - RSVP confirmation: "You're on the list."
 - Soup confirmation: "Your soup has been registered."
 - Duplicate warning: "This soup has already been registered."
-- Footer: "© 2026 Soup Party"
+- Footer: "© 2026 Soup Party", and since 2026-10-13 "Sponsored by GoochBuddy and Opossum Catcher" (see [scope and tickets](scope-and-tickets.md))
 
 **Information architecture:** one primary landing page (wordmark/nav, high-impact hero, restrained soup imagery or interactive bowl, event details, visible registered soups, RSVP form/action, quiet footer). Supporting views: confirmation/edit view and protected host dashboard. Avoid unnecessary navigation levels.
 

@@ -6,7 +6,6 @@ import { Container } from "@/components/layout/container"
 import { Reveal } from "@/components/layout/reveal"
 import {
   Section,
-  SectionEyebrow,
   SectionHeader,
   SectionTitle,
 } from "@/components/layout/section"
@@ -16,8 +15,7 @@ function Rsvp() {
     <Section id="rsvp" aria-labelledby="rsvp-title" className="border-t">
       <Container>
         <SectionHeader reveal>
-          <SectionEyebrow>RSVP</SectionEyebrow>
-          <SectionTitle id="rsvp-title">Will you be there?</SectionTitle>
+          <SectionTitle id="rsvp-title">RSVP</SectionTitle>
         </SectionHeader>
         <Reveal>
           <Suspense fallback={<p role="status">Loading RSVP form…</p>}>

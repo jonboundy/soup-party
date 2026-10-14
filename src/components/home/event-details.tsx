@@ -96,7 +96,7 @@ async function Instructions() {
             id="instructions-title"
             className="type-eyebrow text-muted-foreground"
           >
-            Instructions
+            Details
           </h2>
           {instructions ? (
             <p className="type-lead max-w-2xl whitespace-pre-line">

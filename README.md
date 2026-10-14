@@ -98,7 +98,7 @@ Concurrent edits serialize on the RSVP row: the last completed write wins, with 
 
 ## Public soup registry
 
-The homepage's “The soups.” section lists active soups alphabetically, each with the first name of whoever is bringing it: “Brought by Ada”, or “Brought by Ada and Charles” for two. The RSVP form explains that only first names are public.
+The homepage's “The soups” section lists active soups alphabetically, each with the first name of whoever is bringing it: “Brought by Ada”, or “Brought by Ada and Charles” for two. The RSVP form explains that only first names are public.
 
 `getPublicSoups` in `src/lib/public-soups.ts` selects only approved display fields and filters to attending RSVPs. Private RSVP fields, RSVP identifiers, edit tokens, and surnames are excluded from its result. A soup's own id is public only when its recipe is text or photos, as the address of its recipe page. The query uses a cache tagged `soups`, with a 1-second revalidation interval, 5-minute client stale time, and 5-minute expiry; a successful soup registration immediately expires that tag and refreshes the submitting guest's page. Other visits revalidate shortly afterward; an already-open page updates on a new visit or reload. Guest edit/cancel actions and the host's corrections and removals invalidate the same tag.
 

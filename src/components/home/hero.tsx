@@ -12,6 +12,12 @@ function Hero() {
     <Section className="flex min-h-[calc(92svh-var(--header-height))] items-center py-12 sm:py-16 lg:py-16">
       <Container className="grid items-center gap-y-10 sm:gap-y-12 lg:grid-cols-[1fr_auto] lg:gap-x-16">
         <div>
+          <p
+            data-slot="event-title"
+            className="mb-4 text-muted-foreground sm:mb-5"
+          >
+            Soup Party 2: <span>Electric Boogaloo</span>
+          </p>
           <h1 className="type-display">Soup is happening.</h1>
           <p className="type-lead mt-5 text-muted-foreground sm:mt-8">
             Everyone brings soup. Everyone eats soup.
