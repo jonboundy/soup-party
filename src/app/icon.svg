@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -62 100 104" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <style>
+    :root { --ink: oklch(0.2 0.012 60); }
+    @media (prefers-color-scheme: dark) { :root { --ink: #f9f6f1; } }
+  </style>
+  <g opacity="0.55">
+    <path d="M-15 -24c-7-8 7-12 0-21" />
+    <path d="M0 -27c-7-8 7-12 0-21" />
+    <path d="M15 -24c-7-8 7-12 0-21" />
+  </g>
+  <path d="M-40 -8C-40 16-24 30 0 30S40 16 40 -8" fill="oklch(0.995 0.004 85)" />
+  <ellipse cy="-8" rx="40" ry="7.5" fill="oklch(0.63 0.19 38)" />
+  <path d="M-15 30.5l-2 6h34l-2-6" fill="oklch(0.995 0.004 85)" />
+</svg>

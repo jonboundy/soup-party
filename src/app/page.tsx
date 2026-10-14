@@ -8,6 +8,13 @@ import { SoupRegistry } from "@/components/home/soup-registry";
 
 export const metadata: Metadata = {
   title: "Soup Party 2: Electric Boogaloo",
+  openGraph: {
+    title: "Soup Party 2: Electric Boogaloo",
+    description: "Everyone brings soup. Everyone eats soup.",
+    siteName: "Soup Party",
+    type: "website",
+    url: "/",
+  },
 };
 
 export default function Home() {
