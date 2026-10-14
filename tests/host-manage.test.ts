@@ -94,7 +94,7 @@ describe("host corrections", () => {
 
     expect(updateTag).toHaveBeenCalledWith("soups");
     expect(await readPublicSoups()).toEqual([
-      { name: "Tomato Basil Soup", contributorName: "Ada and William", recipePath: null },
+      { name: "Tomato Basil Soup", contributorName: "Ada and William", recipeUrl: null, recipePath: null },
     ]);
     const overview = await getHostOverview();
     expect(overview.counts).toMatchObject({ guests: 4, soups: 1 });
@@ -126,28 +126,38 @@ describe("host corrections", () => {
   it("add a recipe on a guest's behalf, and keep, change or remove the guest's own", async () => {
     const { id, editToken } = await createRsvp(original);
     const soupId = (await stored(id))!.soup!.id;
-    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+    const recipe = { recipeUrl: null, recipeText: "Beans.\n\nSimmer." };
+    const sent = { recipeKind: "text", recipeText: "Beans.\r\n\r\nSimmer. " };
 
-    await expect(save(id, { recipeUrl: " example.com/minestrone ", recipeText: "Beans.\r\n\r\nSimmer. " })).rejects.toThrow(done);
+    await expect(save(id, sent)).rejects.toThrow(done);
     expect(await getHostRsvp(id)).toEqual({ ...original, soup: { name: "Minestrone", ...recipe } });
     expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
     expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
+    const page = { name: "Minestrone", recipeUrl: null, recipePath: `/soups/${soupId}` };
     const overview = await getHostOverview();
-    expect(overview.attending[0].soup).toEqual({ name: "Minestrone", recipePath: `/soups/${soupId}` });
-    expect(overview.soups).toMatchObject([{ recipePath: `/soups/${soupId}` }]);
+    expect(overview.attending[0].soup).toEqual(page);
+    expect(overview.soups).toMatchObject([page]);
 
     // A correction that carries the recipe back, as the editor does, keeps it.
-    await expect(save(id, { ...recipe, name: "Ada Byron" })).rejects.toThrow(done);
+    await expect(save(id, { ...sent, name: "Ada Byron" })).rejects.toThrow(done);
     expect(await readPublicRecipe(soupId)).toMatchObject({ ...recipe, contributorName: "Ada and Charles" });
 
-    expect(await save(id, { ...recipe, recipeUrl: "javascript:alert(1)" })).toEqual({
+    expect(await save(id, { recipeKind: "link", recipeUrl: "javascript:alert(1)" })).toEqual({
       status: "invalid", errors: { recipeUrl: "Enter a web address, such as https://example.com/soup." },
     });
     expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
 
+    // Corrected to a link, it is the link alone, which the overview leads straight to.
+    await expect(save(id, { ...sent, recipeKind: "link", recipeUrl: "example.com/minestrone" })).rejects.toThrow(done);
+    const link = { recipeUrl: "https://example.com/minestrone", recipeText: null };
+    expect(await getHostRsvp(id)).toMatchObject({ soup: link });
+    expect((await getHostOverview()).attending[0].soup)
+      .toEqual({ name: "Minestrone", recipeUrl: link.recipeUrl, recipePath: null });
+
     await expect(save(id, { name: "Ada Byron" })).rejects.toThrow(done);
     expect(await readPublicRecipe(soupId)).toBeNull();
-    expect((await getHostOverview()).attending[0].soup).toEqual({ name: "Minestrone", recipePath: null });
+    expect((await getHostOverview()).attending[0].soup)
+      .toEqual({ name: "Minestrone", recipeUrl: null, recipePath: null });
   });
 
   it("add and remove a recipe's photos on a guest's behalf", async () => {

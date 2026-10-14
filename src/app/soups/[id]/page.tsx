@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { Container } from "@/components/layout/container";
 import { Section } from "@/components/layout/section";
 import { getPublicRecipe } from "@/lib/public-soups";
+import { recipeSite } from "@/lib/recipe-link";
 
 const robots = { index: false, follow: false };
 
@@ -13,11 +14,6 @@ export async function generateMetadata({ params }: PageProps<"/soups/[id]">): Pr
   // A recipe that cannot be read is reported by the page, not here.
   const recipe = await getPublicRecipe(id).catch(() => null);
   return { title: recipe ? `Recipe: ${recipe.name} · Soup Party` : "Recipe · Soup Party", robots };
-}
-
-// Guests write the address, so it is shown as the site it leads to.
-function site(url: string) {
-  return URL.canParse(url) ? new URL(url).hostname.replace(/^www\./, "") : url;
 }
 
 async function Recipe({ params }: PageProps<"/soups/[id]">) {
@@ -51,7 +47,7 @@ async function Recipe({ params }: PageProps<"/soups/[id]">) {
     {recipe.recipeUrl && <p className="[overflow-wrap:anywhere]">
       {/* A guest's link: no referrer, and no endorsement for a crawler to follow. */}
       <a href={recipe.recipeUrl} rel="noopener noreferrer nofollow ugc" className="underline underline-offset-4">
-        The recipe, at {site(recipe.recipeUrl)}
+        The recipe, at {recipeSite(recipe.recipeUrl)}
       </a>
     </p>}
     {/* Plain text only. A blank line starts a paragraph and other line breaks are kept. */}

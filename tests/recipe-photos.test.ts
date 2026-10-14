@@ -188,17 +188,56 @@ describe("recipe photos", () => {
     expect((await serve(soupId, photoId)).status).toBe(404);
     expect(await getPublicRecipe(soupId)).toBeNull();
     expect(await getEditablePhotos(editToken)).toEqual([{ id: photoId, src: null }]);
-    expect(await edit()).toMatchObject({ status: "attending" });
+    expect(await edit({ recipeKind: "photos" })).toMatchObject({ status: "attending" });
     expect((await serve(soupId, photoId)).status).toBe(200);
     expect((await getPublicRecipe(soupId))!.photos).toMatchObject([{ id: photoId }]);
+  });
+
+  it("are the whole recipe: a link or text is refused them, and replaces them", async () => {
+    const link = { recipeKind: "link", recipeUrl: "https://example.com/minestrone" };
+    const text = { recipeKind: "text", recipeText: "Simmer." };
+    for (const other of [link, text]) {
+      const { soupId, add, edit } = await register();
+      const photoId = savedId(await add());
+
+      // Saved as another kind, the recipe is that kind alone.
+      expect(await edit(other)).toMatchObject({ status: "attending" });
+      expect(await db.recipePhoto.count()).toBe(0);
+      expect((await serve(soupId, photoId)).status).toBe(404);
+      expect((await getPublicRecipe(soupId))!.photos).toEqual([]);
+      vi.clearAllMocks();
+      expect(await add()).toEqual({ status: "other-recipe" });
+      expect(await db.recipePhoto.count()).toBe(0);
+      expect(updateTag).not.toHaveBeenCalled();
+
+      // Saved as photos, it loses the link or the text, and has room for them.
+      expect(await edit({ ...other, recipeKind: "photos" })).toMatchObject({
+        status: "attending", soup: { recipeUrl: null, recipeText: null },
+      });
+      expect(await add()).toMatchObject({ status: "saved" });
+      expect(await getPublicRecipe(soupId)).toMatchObject({ recipeUrl: null, recipeText: null, photos: [{}] });
+      await clearRsvps();
+    }
+  });
+
+  it("are removed when the recipe is saved as none", async () => {
+    const { soupId, add, edit } = await register();
+    await add();
+    const nones: Record<string, string>[] = [{ recipeKind: "none" }, {}];
+    for (const none of nones) {
+      expect(await edit(none)).toMatchObject({ status: "attending" });
+      expect(await db.recipePhoto.count()).toBe(0);
+      expect(await getPublicRecipe(soupId)).toBeNull();
+      expect(await add()).toMatchObject({ status: "saved" });
+    }
   });
 
   it("survive the response's other edits, and go with the soup or the RSVP", async () => {
     const { id, soupId, add, edit } = await register();
     const photoId = savedId(await add());
 
-    // A save sends no photos, and leaves them be.
-    expect(await edit({ name: "Ada Byron", soupName: "Ribollita", recipeText: "Bread." }))
+    // A save sends no photos, and leaves them be while they are the recipe.
+    expect(await edit({ name: "Ada Byron", soupName: "Ribollita", recipeKind: "photos" }))
       .toMatchObject({ status: "attending" });
     expect(await getPublicRecipe(soupId)).toMatchObject({ name: "Ribollita", photos: [{ id: photoId }] });
 

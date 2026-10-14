@@ -10,7 +10,7 @@ import {
   removeRecipePhoto,
   submitRsvp,
 } from "@/app/actions"
-import { RecipeFields } from "@/components/recipe-fields"
+import { RecipeFields, recipeDraft } from "@/components/recipe-fields"
 import { RsvpConfirmation } from "@/components/rsvp-confirmation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,9 @@ async function submit(
     const state = await (editing ? editRsvp : submitRsvp)(previous, formData)
     // Photos belong to a saved soup, so they are sent once there is one,
     // each in a request of its own. A new RSVP's token is by now its link.
+    // A recipe of another kind has none: saving it removed any it had.
     if (state.status !== "attending" || !state.soup) return state
+    if (formData.get("recipeKind") !== "photos") return state
     const editToken = formData.get(editing ? "editToken" : "submissionToken") as string
     const request = (field: string, value: string | Blob) => {
       const data = new FormData()
@@ -96,21 +98,10 @@ function RsvpForm({
   // A cancelled RSVP keeps its answers. Saving them again restores it.
   const cancelled = initial?.status === "DECLINED"
   const [soupName, setSoupName] = React.useState(initial?.soup?.name ?? "")
+  const savedRecipe = recipeDraft(initial?.soup, savedPhotos.length > 0)
   // Held here, not in the fields: they leave the form while the soup has no
   // name, and what was typed in them should be there when they return.
-  const [recipe, setRecipe] = React.useState({
-    url: initial?.soup?.recipeUrl ?? "",
-    text: initial?.soup?.recipeText ?? "",
-  })
-  const savedRecipe = !!(
-    initial?.soup?.recipeUrl ||
-    initial?.soup?.recipeText ||
-    savedPhotos.length
-  )
-  const [recipeOpen, setRecipeOpen] = React.useState(savedRecipe)
-  // Set by the button that opens the recipe fields, so focus follows it
-  // there and nowhere else puts it there.
-  const recipeRequested = React.useRef(false)
+  const [recipe, setRecipe] = React.useState(savedRecipe)
   const [confirmCancel, setConfirmCancel] = React.useState(false)
   const outcome = React.useRef<HTMLHeadingElement>(null)
   // Fields changed since the last response. Their errors no longer apply.
@@ -122,13 +113,6 @@ function RsvpForm({
       form.current?.querySelector<HTMLElement>("#rsvp-confirm-cancel")?.focus()
     }
   }, [confirmCancel])
-
-  React.useEffect(() => {
-    if (recipeOpen && recipeRequested.current) {
-      recipeRequested.current = false
-      form.current?.querySelector<HTMLElement>("#rsvp-recipe-url")?.focus()
-    }
-  }, [recipeOpen])
 
   // After a rejected submission, focus goes to the first field that needs
   // correcting, or back to the button when the response was not saved.
@@ -288,39 +272,25 @@ function RsvpForm({
             </FieldError>
           ) : (
             <FieldDescription id="rsvp-soup-name-description">
-              {savedRecipe
+              {savedRecipe.kind !== "none"
                 ? "Leaving this blank removes the soup and its recipe."
                 : "Leave blank to decide later."}
             </FieldDescription>
           )}
         </Field>
-        {soupName.trim() !== "" &&
-          // An error in a field brings the fields with it.
-          (recipeOpen || errors.recipeUrl || errors.recipeText ? (
-            <RecipeFields
-              id="rsvp"
-              description="Optional. A link, the recipe written out, photos of it, or any of them. Anyone can read it."
-              value={recipe}
-              onChange={setRecipe}
-              photos={photos}
-              setPhotos={setPhotos}
-              disabled={pending}
-              errors={errors}
-              onCorrect={correct}
-            />
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              onClick={() => {
-                recipeRequested.current = true
-                setRecipeOpen(true)
-              }}
-            >
-              Add a recipe
-            </Button>
-          ))}
+        {soupName.trim() !== "" && (
+          <RecipeFields
+            id="rsvp"
+            saved={savedRecipe.kind}
+            value={recipe}
+            onChange={setRecipe}
+            photos={photos}
+            setPhotos={setPhotos}
+            disabled={pending}
+            errors={errors}
+            onCorrect={correct}
+          />
+        )}
         {state.status === "failed" && (
           <Alert variant="destructive">
             <AlertTitle>The RSVP could not be saved.</AlertTitle>

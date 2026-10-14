@@ -285,21 +285,31 @@ describe("submitRsvp", () => {
 
   it("stores a recipe with the soup and confirms it to the guest", async () => {
     const result = await submit({
-      ...ada, soupName: "Minestrone", recipeUrl: " example.com/minestrone ", recipeText: "Beans.\r\n\r\nSimmer.  ",
+      ...ada, soupName: "Minestrone", recipeKind: "text", recipeText: "Beans.\r\n\r\nSimmer.  ",
     });
 
-    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+    const recipe = { recipeUrl: null, recipeText: "Beans.\n\nSimmer." };
     expect(result).toMatchObject({ status: "attending", soup: { name: "Minestrone", ...recipe } });
     expect(await db.soup.findMany()).toMatchObject([{ name: "Minestrone", ...recipe }]);
     expect(updateTag).toHaveBeenCalledExactlyOnceWith("soups");
   });
 
+  it("stores only the kind of recipe chosen, whatever else was sent", async () => {
+    const result = await submit({
+      ...ada, soupName: "Minestrone", recipeKind: "link", recipeUrl: " example.com/minestrone ", recipeText: "Simmer.",
+    });
+
+    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: null };
+    expect(result).toMatchObject({ status: "attending", soup: { name: "Minestrone", ...recipe } });
+    expect(await db.soup.findMany()).toMatchObject([{ name: "Minestrone", ...recipe }]);
+  });
+
   it("stores nothing when the recipe is invalid, or has no soup", async () => {
-    expect(await submit({ ...ada, soupName: "Minestrone", recipeUrl: "javascript:alert(1)" })).toEqual({
+    expect(await submit({ ...ada, soupName: "Minestrone", recipeKind: "link", recipeUrl: "javascript:alert(1)" })).toEqual({
       status: "invalid",
       errors: { recipeUrl: "Enter a web address, such as https://example.com/soup." },
     });
-    expect(await submit({ ...ada, recipeText: "Simmer." })).toEqual({
+    expect(await submit({ ...ada, recipeKind: "text", recipeText: "Simmer." })).toEqual({
       status: "invalid",
       errors: { soupName: "Name the soup this recipe is for." },
     });

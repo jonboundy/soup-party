@@ -22,6 +22,11 @@ export type RsvpInput = {
   status: RsvpStatus;
   /** Null when declined, or when the guest has not decided. */
   soup: SoupInput | null;
+  /**
+   * The soup's recipe is its photos, which are sent apart and so are not
+   * here. A recipe is one kind of thing: saved without this, a soup keeps none.
+   */
+  recipePhotos?: boolean;
 };
 
 // Runs of whitespace, including line breaks, become single spaces.
@@ -51,6 +56,9 @@ const soupName = z
   .refine((value) => !value.includes("\0"), "Enter the soup name without control characters.")
   .transform(tidy)
   .pipe(z.string().max(SOUP_NAME_MAX_LENGTH, `Use ${SOUP_NAME_MAX_LENGTH} characters or fewer.`));
+
+// May be blank: no recipe.
+const recipeKind = z.enum(["none", "link", "text", "photos"], "Choose what the recipe is.");
 
 const RECIPE_URL_REQUEST = "Enter a web address, such as https://example.com/soup.";
 
@@ -112,6 +120,9 @@ function check<T>(schema: z.ZodType<T>, value: unknown) {
  * A soup sent with a decline is ignored, and its recipe with it. An attending
  * guest who leaves the soup's name blank is deciding later, and cannot give a
  * recipe yet. A field that was not sent at all counts as blank.
+ *
+ * A recipe is the one kind named by `recipeKind`, and only that kind's field
+ * is read. Left blank, it is no recipe.
  */
 export function parseRsvp(
   input: Record<RsvpField, unknown>,
@@ -121,14 +132,17 @@ export function parseRsvp(
   const parsedAttendance = check(attendance, input.attendance);
   const attending = parsedAttendance.value === "attending";
   const parsedSoupName = attending ? check(soupName, input.soupName ?? "") : undefined;
-  const parsedRecipeUrl = attending ? check(recipeUrl, input.recipeUrl ?? "") : undefined;
-  const parsedRecipeText = attending ? check(recipeText, input.recipeText ?? "") : undefined;
+  const parsedRecipeKind = attending ? check(recipeKind, input.recipeKind || "none") : undefined;
+  const kind = parsedRecipeKind?.value;
+  const parsedRecipeUrl = kind === "link" ? check(recipeUrl, input.recipeUrl ?? "") : undefined;
+  const parsedRecipeText = kind === "text" ? check(recipeText, input.recipeText ?? "") : undefined;
 
   const errors: RsvpErrors = {};
   if (parsedName.error) errors.name = parsedName.error;
   if (parsedSecondName.error) errors.secondName = parsedSecondName.error;
   if (parsedAttendance.error) errors.attendance = parsedAttendance.error;
   if (parsedSoupName?.error) errors.soupName = parsedSoupName.error;
+  if (parsedRecipeKind?.error) errors.recipeKind = parsedRecipeKind.error;
   if (parsedRecipeUrl?.error) errors.recipeUrl = parsedRecipeUrl.error;
   if (parsedRecipeText?.error) errors.recipeText = parsedRecipeText.error;
   // Dropping the recipe unsaid would lose what the guest typed.
@@ -157,6 +171,7 @@ export function parseRsvp(
             recipeText: parsedRecipeText?.value || null,
           }
         : null,
+      recipePhotos: !!parsedSoupName?.value && kind === "photos",
     },
   };
 }

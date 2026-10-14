@@ -70,6 +70,7 @@ export async function saveHostRsvp(
     secondName: singleField(formData, "secondName"),
     attendance: singleField(formData, "attendance"),
     soupName: singleField(formData, "soupName"),
+    recipeKind: singleField(formData, "recipeKind"),
     recipeUrl: singleField(formData, "recipeUrl"),
     recipeText: singleField(formData, "recipeText"),
   });

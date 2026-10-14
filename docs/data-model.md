@@ -79,11 +79,13 @@ The soup a guest intends to bring. Optional: an RSVP with no soup row is a guest
 | `rsvp_id` | `uuid` | Unique. References `rsvps.id`. |
 | `name` | `text` | Required. As the guest typed it. |
 | `normalized_name` | `text` | Required. Indexed. Reduced form of `name` for duplicate detection, from `normalizeSoupName` in `src/lib/soup-name.ts`. |
-| `recipe_url` | `text` | Nullable. Where the recipe can be found. Stored as a normalized `http(s)` address. |
-| `recipe_text` | `text` | Nullable. The recipe written out. Line breaks are kept. |
+| `recipe_url` | `text` | Nullable. Where the recipe can be found. Stored as a normalized `http(s)` address. Null when `recipe_text` is set. |
+| `recipe_text` | `text` | Nullable. The recipe written out. Line breaks are kept. Null when `recipe_url` is set. |
 | `created_at`, `updated_at` | `timestamptz` | |
 
-A soup has a recipe when either recipe column is set or it has a photo. A recipe is public while its soup is active, at `/soups/<id>`, which makes the soup's `id` public for those soups. Both columns are written on every attending save, from what the form sent, so a form that leaves them out removes them. Photos are added and removed by requests of their own and are untouched by a save.
+A soup has a recipe when either recipe column is set or it has a photo. A recipe is one kind of thing: a link, or the recipe written out, or photos of it. `soups_recipe_kind_check` keeps the two columns apart. Photos are in a table of their own, out of a `CHECK`'s reach, so the writes keep them apart from the columns: `writeRsvp` in `src/lib/rsvp.ts` and `addRecipePhoto` in `src/lib/recipe-photos.ts`.
+
+A recipe is public while its soup is active. One that is a link is linked to directly from the registry. One that is text or photos is at `/soups/<id>`, which makes the soup's `id` public for those soups. Every attending save writes both columns from the one kind the form sent, and deletes the soup's photos unless that kind is photos, so a form that names no kind removes the recipe. Photos are added and removed by requests of their own, and a photo is refused while either column is set.
 
 ### `recipe_photos` (`RecipePhoto`)
 
@@ -128,6 +130,7 @@ A photo is never changed, only added or removed, so there is no `updated_at`. Se
 | `soups_name_check` | `soups` | `name` is not blank. |
 | `soups_recipe_url_check` | `soups` | `recipe_url`, when set, starts with `http://` or `https://` and has no spaces. |
 | `soups_recipe_text_check` | `soups` | `recipe_text`, when set, is not blank. |
+| `soups_recipe_kind_check` | `soups` | `recipe_url` and `recipe_text` are not both set. |
 | `recipe_photos_soup_id_fkey` | `recipe_photos` | `soup_id` references a soup; cascades on delete. |
 | `recipe_photos_soup_id_position_key` | `recipe_photos` | One photo per position per soup. |
 | `recipe_photos_position_check` | `recipe_photos` | `position` is 0, 1 or 2. |

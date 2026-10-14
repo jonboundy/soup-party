@@ -71,6 +71,7 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
     // come after all cancels, and saving again from the edit link returns them.
     attendance: "attending",
     soupName: singleField(formData, "soupName"),
+    recipeKind: singleField(formData, "recipeKind"),
     recipeUrl: singleField(formData, "recipeUrl"),
     recipeText: singleField(formData, "recipeText"),
   });

@@ -3,6 +3,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { publicGuestNames } from "@/lib/guest-names";
+import { recipeLinks } from "@/lib/recipe-link";
 import { isUuid } from "@/lib/uuid";
 
 /** Only deliberate public fields leave this function. */
@@ -38,11 +39,10 @@ export async function readPublicSoups(excludeEditTokenHash?: string) {
     },
   });
 
-  return soups.map(({ id, name, recipeUrl, recipeText, _count, rsvp }) => ({
+  return soups.map(({ name, rsvp, ...soup }) => ({
     name,
     contributorName: publicGuestNames(rsvp),
-    // A soup's id is public only as the address of its recipe.
-    recipePath: recipeUrl || recipeText || _count.photos ? `/soups/${id}` : null,
+    ...recipeLinks(soup),
   }));
 }
 

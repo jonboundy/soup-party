@@ -22,7 +22,7 @@ afterAll(async () => db.$disconnect());
 
 const minestrone = soupNamed("Minestrone");
 // As the overview shows it: a soup without a recipe has no recipe page.
-const listed = { name: "Minestrone", recipePath: null };
+const listed = { name: "Minestrone", recipeUrl: null, recipePath: null };
 const alone = { secondName: null, status: "ATTENDING" as const };
 const couple = { secondName: "Charles Babbage", status: "ATTENDING" as const };
 

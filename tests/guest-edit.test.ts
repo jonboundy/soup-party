@@ -162,42 +162,56 @@ describe("private guest RSVP management", () => {
   it("adds, changes and removes a recipe using the same link", async () => {
     const { id, editToken } = await createRsvp(original);
     const soupId = (await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).id;
-    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+    const link = { recipeUrl: "https://example.com/minestrone", recipeText: null };
+    const text = { recipeUrl: null, recipeText: "Beans.\n\nSimmer." };
 
-    expect(await edit(editToken, recipe)).toMatchObject({ status: "attending", soup: { name: "Minestrone", ...recipe } });
-    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
-    expect(await readPublicSoups()).toMatchObject([{ recipePath: `/soups/${soupId}` }]);
-    expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
+    expect(await edit(editToken, { recipeKind: "link", recipeUrl: " example.com/minestrone " }))
+      .toMatchObject({ status: "attending", soup: { name: "Minestrone", ...link } });
+    expect(await getEditableRsvp(editToken)).toMatchObject({ soup: link });
+    // A recipe that is a link is linked to directly, and needs no page of its own.
+    expect(await readPublicSoups()).toMatchObject([{ recipeUrl: link.recipeUrl, recipePath: null }]);
     expect(updateTag).toHaveBeenCalledWith("soups");
 
-    // Renaming the soup keeps its recipe, and its address.
-    expect(await edit(editToken, { ...recipe, soupName: "Ribollita", recipeText: "Bread." })).toMatchObject({ status: "attending" });
-    expect(await readPublicRecipe(soupId)).toMatchObject({ name: "Ribollita", recipeUrl: recipe.recipeUrl, recipeText: "Bread." });
+    // Saved as another kind, it is that kind alone, whatever else the form still held.
+    expect(await edit(editToken, {
+      soupName: "Ribollita", recipeKind: "text", recipeUrl: link.recipeUrl, recipeText: "Beans.\r\n\r\nSimmer. ",
+    })).toMatchObject({ status: "attending", soup: text });
+    expect(await readPublicRecipe(soupId)).toMatchObject({ name: "Ribollita", ...text });
+    expect(await readPublicSoups()).toMatchObject([{ recipeUrl: null, recipePath: `/soups/${soupId}` }]);
 
-    // Sent blank, or not sent at all, the recipe is removed.
-    expect(await edit(editToken, { recipeUrl: "", recipeText: " " })).toMatchObject({ soup: { recipeUrl: null, recipeText: null } });
-    expect(await readPublicRecipe(soupId)).toBeNull();
-    expect(await readPublicSoups()).toMatchObject([{ recipePath: null }]);
+    // Left blank, of no kind, or not sent at all, the recipe is removed.
+    const nones: Record<string, string>[] = [
+      { recipeKind: "text", recipeText: " " }, { recipeKind: "none", recipeText: "Simmer." }, {},
+    ];
+    for (const none of nones) {
+      expect(await edit(editToken, { recipeKind: "text", recipeText: "Simmer." })).toMatchObject({ status: "attending" });
+      expect(await edit(editToken, none)).toMatchObject({ soup: { recipeUrl: null, recipeText: null } });
+      expect(await readPublicRecipe(soupId)).toBeNull();
+      expect(await readPublicSoups()).toMatchObject([{ recipeUrl: null, recipePath: null }]);
+    }
   });
 
   it("saves nothing when the recipe is invalid", async () => {
     const { editToken } = await createRsvp(original);
-    expect(await edit(editToken, { name: "Ada Byron", recipeUrl: "minestrone" })).toEqual({
+    expect(await edit(editToken, { name: "Ada Byron", recipeKind: "link", recipeUrl: "minestrone" })).toEqual({
       status: "invalid", errors: { recipeUrl: "Enter a web address, such as https://example.com/soup." },
+    });
+    expect(await edit(editToken, { name: "Ada Byron", recipeKind: "both" })).toEqual({
+      status: "invalid", errors: { recipeKind: "Choose what the recipe is." },
     });
     expect(await getEditableRsvp(editToken)).toEqual(original);
     expect(updateTag).not.toHaveBeenCalled();
   });
 
   it("keeps a recipe, unlisted, through a cancellation, and loses it with the soup", async () => {
-    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." };
+    const recipe = { recipeUrl: null, recipeText: "Simmer." };
     const { id, editToken } = await createRsvp({ ...original, soup: soupNamed("Minestrone", recipe) });
     const soupId = (await db.soup.findUniqueOrThrow({ where: { rsvpId: id } })).id;
 
     expect(await cancel(editToken)).toMatchObject({ status: "cancelled" });
     expect(await readPublicRecipe(soupId)).toBeNull();
     expect(await getEditableRsvp(editToken)).toMatchObject({ soup: recipe });
-    expect(await edit(editToken, recipe)).toMatchObject({ status: "attending" });
+    expect(await edit(editToken, { recipeKind: "text", recipeText: "Simmer." })).toMatchObject({ status: "attending" });
     expect(await readPublicRecipe(soupId)).toMatchObject(recipe);
 
     // A soup with no name is no soup, so its recipe goes with it.

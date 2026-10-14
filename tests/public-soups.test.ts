@@ -17,10 +17,11 @@ async function register(name = "Minestrone", attendeeName = "Ada Lovelace", seco
   return createRsvp({ attendeeName, secondName, status: "ATTENDING", soup: soupNamed(name) });
 }
 
-const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Beans.\n\nSimmer." };
+const recipe = { recipeUrl: null, recipeText: "Beans.\n\nSimmer." };
+const link = { recipeUrl: "https://www.example.com/minestrone", recipeText: null };
 
 /** Registers a soup with a recipe and returns the soup's id with the RSVP's. */
-async function registerWithRecipe(given: Partial<typeof recipe> = recipe) {
+async function registerWithRecipe(given: typeof recipe | typeof link = recipe) {
   const { id, editToken } = await createRsvp({
     attendeeName: "Ada Lovelace", secondName: "Charles Babbage", status: "ATTENDING",
     soup: soupNamed("Minestrone", given),
@@ -39,7 +40,9 @@ describe("public soup registry", () => {
     const rsvp = await db.rsvp.findUniqueOrThrow({ where: { id }, include: { soup: true } });
     const soups = await getPublicSoups();
 
-    expect(soups).toEqual([{ name: "Minestrone", contributorName: "Ada and Charles", recipePath: null }]);
+    expect(soups).toEqual([
+      { name: "Minestrone", contributorName: "Ada and Charles", recipeUrl: null, recipePath: null },
+    ]);
     for (const privateValue of [id, editToken, rsvp.editTokenHash, rsvp.soup!.id, "Lovelace", "Babbage"]) {
       expect(JSON.stringify(soups)).not.toContain(privateValue);
     }
@@ -89,9 +92,28 @@ describe("public recipes", () => {
     await register("Borscht", "Grace Hopper");
 
     expect(await getPublicSoups()).toEqual([
-      { name: "Borscht", contributorName: "Grace", recipePath: null },
-      { name: "Minestrone", contributorName: "Ada and Charles", recipePath: `/soups/${soupId}` },
+      { name: "Borscht", contributorName: "Grace", recipeUrl: null, recipePath: null },
+      { name: "Minestrone", contributorName: "Ada and Charles", recipeUrl: null, recipePath: `/soups/${soupId}` },
     ]);
+  });
+
+  it("are linked to directly when the recipe is a link, which leaves the soup's id private", async () => {
+    const { soupId } = await registerWithRecipe(link);
+    const soups = await getPublicSoups();
+
+    expect(soups).toEqual([
+      { name: "Minestrone", contributorName: "Ada and Charles", recipeUrl: link.recipeUrl, recipePath: null },
+    ]);
+    expect(JSON.stringify(soups)).not.toContain(soupId);
+  });
+
+  it("have a page when photos join a link, so that neither is hidden", async () => {
+    const { soupId } = await registerWithRecipe(link);
+    // The writes keep the two apart. The database alone does not.
+    await db.recipePhoto.create({ data: { soupId, position: 0, bytes: new Uint8Array([1]), width: 1, height: 1 } });
+
+    expect(await getPublicSoups()).toMatchObject([{ recipeUrl: null, recipePath: `/soups/${soupId}` }]);
+    expect(await getPublicRecipe(soupId)).toMatchObject({ ...link, photos: [{ width: 1 }] });
   });
 
   it("expose the soup, the contributors' first names and the recipe, and nothing else", async () => {
@@ -105,11 +127,11 @@ describe("public recipes", () => {
     }
   });
 
-  it("need only a link or only the recipe written out", async () => {
-    const link = await registerWithRecipe({ recipeUrl: recipe.recipeUrl });
-    expect(await getPublicRecipe(link.soupId)).toMatchObject({ recipeUrl: recipe.recipeUrl, recipeText: null });
-    const text = await registerWithRecipe({ recipeText: recipe.recipeText });
-    expect(await getPublicRecipe(text.soupId)).toMatchObject({ recipeUrl: null, recipeText: recipe.recipeText });
+  it("are a link or the recipe written out, and never both", async () => {
+    const { soupId } = await registerWithRecipe(link);
+    expect(await getPublicRecipe(soupId)).toMatchObject(link);
+    await expect(db.soup.update({ where: { id: soupId }, data: { recipeText: "Simmer." } }))
+      .rejects.toThrow("soups_recipe_kind_check");
   });
 
   it("have no page for a soup without one", async () => {
