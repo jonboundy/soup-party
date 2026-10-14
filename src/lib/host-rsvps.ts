@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { guestNames } from "@/lib/guest-names";
 import { requireHost } from "@/lib/host-session";
 import type { Jpeg } from "@/lib/jpeg";
+import { recipeLinks } from "@/lib/recipe-link";
 import { addRecipePhoto, listRecipePhotos, removeRecipePhoto } from "@/lib/recipe-photos";
 import { writeRsvp } from "@/lib/rsvp";
 import type { RsvpInput } from "@/lib/rsvp-schema";
@@ -48,12 +49,7 @@ export async function getHostOverview() {
     ...rsvp,
     // A guest may change only the soup, which leaves the RSVP row as it was.
     updatedAt: soup && soup.updatedAt > updatedAt ? soup.updatedAt : updatedAt,
-    // The id is public once there is a recipe: it is the recipe page's address.
-    soup: soup && {
-      name: soup.name,
-      recipePath:
-        soup.recipeUrl || soup.recipeText || soup._count.photos ? `/soups/${soup.id}` : null,
-    },
+    soup: soup && { name: soup.name, ...recipeLinks(soup) },
   }));
   const attending = rsvps.filter(({ status }) => status === "ATTENDING");
   const declined = rsvps.filter(({ status }) => status === "DECLINED");

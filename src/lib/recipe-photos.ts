@@ -34,20 +34,29 @@ export async function listRecipePhotos(owner: Owner): Promise<RecipePhotoRef[]> 
 }
 
 /**
- * Adds a photo to an RSVP's soup, in the first free place. The unique
+ * Adds a photo to an RSVP's soup, in the first free place, unless its recipe
+ * is already a link or text. The unique
  * (soup, position) index is what keeps a soup to its limit: two uploads
  * racing for one place cannot both have it, and the loser tries the next.
  */
 export async function addRecipePhoto(
   owner: Owner,
   { bytes, width, height }: Jpeg,
-): Promise<{ status: "saved"; photo: RecipePhotoRef } | { status: "full" | "no-soup" }> {
+): Promise<{ status: "saved"; photo: RecipePhotoRef } | { status: "full" | "no-soup" | "other-recipe" }> {
   for (let attempt = 0; attempt <= RECIPE_PHOTO_LIMIT; attempt++) {
     const soup = await db.soup.findFirst({
       where: { rsvp: owner },
-      select: { id: true, rsvp: { select: { status: true } }, photos: { select: { position: true } } },
+      select: {
+        id: true,
+        recipeUrl: true,
+        recipeText: true,
+        rsvp: { select: { status: true } },
+        photos: { select: { position: true } },
+      },
     });
     if (!soup) return { status: "no-soup" };
+    // A recipe is one kind of thing. Saving the response as photos clears these first.
+    if (soup.recipeUrl || soup.recipeText) return { status: "other-recipe" };
     const taken = new Set(soup.photos.map(({ position }) => position));
     const position = Array.from({ length: RECIPE_PHOTO_LIMIT }, (_, index) => index).find(
       (index) => !taken.has(index),

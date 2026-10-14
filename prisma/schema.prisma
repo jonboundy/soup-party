@@ -69,6 +69,7 @@ model Soup {
   /// unique: similar soups produce a warning, never a rejection.
   normalizedName String   @map("normalized_name")
   /// Where the recipe can be found. Must be an http(s) URL. Public once set.
+  /// A recipe is one kind of thing, so this is null when the text is set.
   recipeUrl      String?  @map("recipe_url")
   /// The recipe written out, line breaks kept. Public once set.
   recipeText     String?  @map("recipe_text")

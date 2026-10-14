@@ -14,6 +14,7 @@ const attending = {
   secondName: "",
   attendance: "attending",
   soupName: "",
+  recipeKind: "",
   recipeUrl: "",
   recipeText: "",
 };
@@ -27,7 +28,7 @@ describe("parseRsvp", () => {
   it("accepts an attending guest on their own", () => {
     expect(parseRsvp(attending)).toEqual({
       success: true,
-      data: { attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING", soup: null },
+      data: { attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING", soup: null, recipePhotos: false },
     });
   });
 
@@ -39,6 +40,7 @@ describe("parseRsvp", () => {
         secondName: "Charles Babbage",
         status: "ATTENDING",
         soup: null,
+        recipePhotos: false,
       },
     });
   });
@@ -62,6 +64,7 @@ describe("parseRsvp", () => {
         secondName: "Charles Babbage",
         status: "DECLINED",
         soup: null,
+        recipePhotos: false,
       },
     });
   });
@@ -130,7 +133,7 @@ describe("parseRsvp", () => {
     for (const soupName of ["Minestrone", 7, "a".repeat(SOUP_NAME_MAX_LENGTH + 1)]) {
       expect(parseRsvp({ ...attending, soupName, attendance: "declined" })).toEqual({
         success: true,
-        data: { attendeeName: "Ada Lovelace", secondName: null, status: "DECLINED", soup: null },
+        data: { attendeeName: "Ada Lovelace", secondName: null, status: "DECLINED", soup: null, recipePhotos: false },
       });
     }
   });
@@ -164,31 +167,55 @@ describe("parseRsvp", () => {
     const recipeOf = (input: Record<string, unknown>) => {
       const result = parseRsvp({ ...minestrone, ...input });
       if (!result.success) throw new Error(JSON.stringify(result.errors));
-      return { recipeUrl: result.data.soup?.recipeUrl, recipeText: result.data.soup?.recipeText };
+      const { soup, recipePhotos } = result.data;
+      return { recipeUrl: soup?.recipeUrl, recipeText: soup?.recipeText, recipePhotos };
     };
+    const link = (recipeUrl: unknown) => ({ recipeKind: "link", recipeUrl });
+    const text = (recipeText: unknown) => ({ recipeKind: "text", recipeText });
+    const none = { recipeUrl: null, recipeText: null, recipePhotos: false };
     const address = "Enter a web address, such as https://example.com/soup.";
 
-    it("may be a link, the recipe written out, or both", () => {
+    it("is a link, the recipe written out, or photos of it", () => {
       const recipeUrl = "https://example.com/minestrone";
-      expect(recipeOf({ recipeUrl })).toEqual({ recipeUrl, recipeText: null });
-      expect(recipeOf({ recipeText: "Simmer." })).toEqual({ recipeUrl: null, recipeText: "Simmer." });
-      expect(recipeOf({ recipeUrl, recipeText: "Simmer." })).toEqual({ recipeUrl, recipeText: "Simmer." });
+      expect(recipeOf(link(recipeUrl))).toEqual({ ...none, recipeUrl });
+      expect(recipeOf(text("Simmer."))).toEqual({ ...none, recipeText: "Simmer." });
+      expect(recipeOf({ recipeKind: "photos" })).toEqual({ ...none, recipePhotos: true });
     });
 
-    it("is optional, and blank or missing fields are no recipe", () => {
+    it("is only the kind it is said to be, whatever else was sent", () => {
+      const all = { recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." };
+      expect(recipeOf({ ...all, recipeKind: "link" })).toEqual({ ...none, recipeUrl: all.recipeUrl });
+      expect(recipeOf({ ...all, recipeKind: "text" })).toEqual({ ...none, recipeText: "Simmer." });
+      expect(recipeOf({ ...all, recipeKind: "photos" })).toEqual({ ...none, recipePhotos: true });
+      // The other kind's field is not read, so nothing wrong with it is reported.
+      expect(recipeOf({ recipeKind: "text", recipeText: "Simmer.", recipeUrl: "javascript:alert(1)" }))
+        .toEqual({ ...none, recipeText: "Simmer." });
+      for (const recipeKind of ["none", "", null, undefined]) {
+        expect(recipeOf({ ...all, recipeKind })).toEqual(none);
+      }
+    });
+
+    it("is optional, and a kind left blank is no recipe", () => {
       for (const blank of ["", "  ", "\n \n", null, undefined]) {
-        expect(recipeOf({ recipeUrl: blank, recipeText: blank })).toEqual({ recipeUrl: null, recipeText: null });
+        expect(recipeOf(link(blank))).toEqual(none);
+        expect(recipeOf(text(blank))).toEqual(none);
+      }
+    });
+
+    it("rejects a kind that is not one of them", () => {
+      for (const recipeKind of ["both", "LINK", 7, ["link", "text"]]) {
+        expect(errorsFor({ soupName: "Minestrone", recipeKind })).toEqual({ recipeKind: "Choose what the recipe is." });
       }
     });
 
     it("assumes https for an address pasted without a scheme", () => {
-      expect(recipeOf({ recipeUrl: "  example.com/soup?id=1 " }).recipeUrl).toBe("https://example.com/soup?id=1");
-      expect(recipeOf({ recipeUrl: "//example.com/soup" }).recipeUrl).toBe("https://example.com/soup");
-      expect(recipeOf({ recipeUrl: "HTTP://Example.com" }).recipeUrl).toBe("http://example.com/");
+      expect(recipeOf(link("  example.com/soup?id=1 ")).recipeUrl).toBe("https://example.com/soup?id=1");
+      expect(recipeOf(link("//example.com/soup")).recipeUrl).toBe("https://example.com/soup");
+      expect(recipeOf(link("HTTP://Example.com")).recipeUrl).toBe("http://example.com/");
     });
 
     it("stores an address with nothing a link cannot hold", () => {
-      expect(recipeOf({ recipeUrl: "https://example.com/my soup" }).recipeUrl).toBe("https://example.com/my%20soup");
+      expect(recipeOf(link("https://example.com/my soup")).recipeUrl).toBe("https://example.com/my%20soup");
     });
 
     it("accepts only a web address as the link", () => {
@@ -197,56 +224,62 @@ describe("parseRsvp", () => {
         "file:///etc/passwd", "example.com:8080/soup", "https://", "minestrone", "https://localhost/soup",
         "https://ada:secret@example.com/soup", "my grandmother's recipe", "https://exa\0mple.com", 7, ["https://example.com"],
       ]) {
-        expect(errorsFor({ soupName: "Minestrone", recipeUrl })).toEqual({ recipeUrl: address });
+        expect(errorsFor({ soupName: "Minestrone", ...link(recipeUrl) })).toEqual({ recipeUrl: address });
       }
     });
 
     it("limits the length of the link", () => {
       const longest = `https://example.com/${"a".repeat(RECIPE_URL_MAX_LENGTH - 20)}`;
-      expect(recipeOf({ recipeUrl: longest }).recipeUrl).toBe(longest);
-      expect(errorsFor({ soupName: "Minestrone", recipeUrl: `${longest}a` })).toEqual({
+      expect(recipeOf(link(longest)).recipeUrl).toBe(longest);
+      expect(errorsFor({ soupName: "Minestrone", ...link(`${longest}a`) })).toEqual({
         recipeUrl: `Use ${RECIPE_URL_MAX_LENGTH} characters or fewer.`,
       });
     });
 
     it("keeps the written recipe's lines and paragraphs, and tidies around them", () => {
       const recipeText = "\r\n  Ingredients \r\n- beans\t\r- pasta\n\n\n\n  Simmer for an hour.  \n\n";
-      expect(recipeOf({ recipeText }).recipeText).toBe("  Ingredients\n- beans\n- pasta\n\n  Simmer for an hour.");
+      expect(recipeOf(text(recipeText)).recipeText).toBe("  Ingredients\n- beans\n- pasta\n\n  Simmer for an hour.");
     });
 
     it("limits the length of the written recipe, counted after tidying", () => {
       const longest = "a".repeat(RECIPE_TEXT_MAX_LENGTH);
-      expect(recipeOf({ recipeText: `\n${longest}  \n` }).recipeText).toBe(longest);
-      expect(errorsFor({ soupName: "Minestrone", recipeText: `${longest}a` })).toEqual({
+      expect(recipeOf(text(`\n${longest}  \n`)).recipeText).toBe(longest);
+      expect(errorsFor({ soupName: "Minestrone", ...text(`${longest}a`) })).toEqual({
         recipeText: "Use 10,000 characters or fewer.",
       });
     });
 
     it("rejects a written recipe that is not text", () => {
-      expect(errorsFor({ soupName: "Minestrone", recipeText: 7 })).toEqual({ recipeText: "Enter the recipe." });
-      expect(errorsFor({ soupName: "Minestrone", recipeText: "Sim\0mer" })).toEqual({
+      expect(errorsFor({ soupName: "Minestrone", ...text(7) })).toEqual({ recipeText: "Enter the recipe." });
+      expect(errorsFor({ soupName: "Minestrone", ...text("Sim\0mer") })).toEqual({
         recipeText: "Enter the recipe without control characters.",
       });
     });
 
     it("tidies a long run of spaces without slowing down", () => {
       const started = performance.now();
-      errorsFor({ soupName: "Minestrone", recipeText: `${" ".repeat(900_000)}x` });
+      errorsFor({ soupName: "Minestrone", ...text(`${" ".repeat(900_000)}x`) });
       expect(performance.now() - started).toBeLessThan(1000);
     });
 
     it("needs a soup to be the recipe for", () => {
-      for (const recipe of [{ recipeUrl: "example.com/soup" }, { recipeText: "Simmer." }]) {
+      for (const recipe of [link("example.com/soup"), text("Simmer.")]) {
         expect(errorsFor(recipe)).toEqual({ soupName: "Name the soup this recipe is for." });
       }
+      // Photos are sent apart, and are refused there without a soup.
+      expect(parseRsvp({ ...attending, recipeKind: "photos" })).toMatchObject({
+        success: true, data: { soup: null, recipePhotos: false },
+      });
     });
 
     it("is ignored on a decline, whatever was sent", () => {
       expect(
-        parseRsvp({ ...minestrone, attendance: "declined", recipeUrl: "javascript:alert(1)", recipeText: 7 }),
+        parseRsvp({
+          ...minestrone, attendance: "declined", recipeKind: "both", recipeUrl: "javascript:alert(1)", recipeText: 7,
+        }),
       ).toEqual({
         success: true,
-        data: { attendeeName: "Ada Lovelace", secondName: null, status: "DECLINED", soup: null },
+        data: { attendeeName: "Ada Lovelace", secondName: null, status: "DECLINED", soup: null, recipePhotos: false },
       });
     });
   });

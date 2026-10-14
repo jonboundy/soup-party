@@ -55,15 +55,17 @@ describe("submission protection", () => {
 
   it("treats a recipe as part of the answers a retry must match", async () => {
     const token = createEditToken().token;
-    const recipe = { recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." };
+    const recipe = { recipeKind: "text", recipeText: "Simmer." };
     const saved = await submit(form(token, recipe));
-    expect(saved).toMatchObject({ status: "attending", soup: recipe });
+    expect(saved).toMatchObject({ status: "attending", soup: { recipeUrl: null, recipeText: "Simmer." } });
     expect(await submit(form(token, recipe))).toEqual(saved);
-    const others: Record<string, string>[] = [{}, { recipeUrl: recipe.recipeUrl }, { ...recipe, recipeText: "Boil." }];
+    const others: Record<string, string>[] = [
+      {}, { recipeKind: "link", recipeUrl: "https://example.com/minestrone" }, { ...recipe, recipeText: "Boil." },
+    ];
     for (const changed of others) {
       expect(await submit(form(token, changed))).toEqual({ status: "conflict" });
     }
-    expect(await getEditableRsvp(token)).toMatchObject({ soup: recipe });
+    expect(await getEditableRsvp(token)).toMatchObject({ soup: { recipeUrl: null, recipeText: "Simmer." } });
   });
 
   it("gives a response without a recipe the fingerprint it had before recipes existed", async () => {

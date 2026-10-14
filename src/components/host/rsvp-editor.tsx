@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { RecipeFields } from "@/components/recipe-fields"
+import { RecipeFields, recipeDraft } from "@/components/recipe-fields"
 import { guestNames } from "@/lib/guest-names"
 import type { HostRsvpState } from "@/lib/host-form"
 import {
@@ -108,16 +108,10 @@ function HostRsvpEditor({
     initial.status === "ATTENDING" ? "attending" : "declined"
   )
   const [soupName, setSoupName] = React.useState(initial.soup?.name ?? "")
+  // Photos that could not be saved were a recipe of photos, even if none were.
+  const savedRecipe = recipeDraft(initial.soup, savedPhotos.length > 0 || unsavedPhotos > 0)
   // Held here, not in the fields, which leave the form while the soup has no name.
-  const [recipe, setRecipe] = React.useState({
-    url: initial.soup?.recipeUrl ?? "",
-    text: initial.soup?.recipeText ?? "",
-  })
-  const savedRecipe = !!(
-    initial.soup?.recipeUrl ||
-    initial.soup?.recipeText ||
-    savedPhotos.length
-  )
+  const [recipe, setRecipe] = React.useState(savedRecipe)
   const [confirmRemove, setConfirmRemove] = React.useState(false)
   // Fields changed since the last response. Their errors no longer apply.
   const [corrected, setCorrected] = React.useState<RsvpField[]>([])
@@ -178,8 +172,8 @@ function HostRsvpEditor({
           event.preventDefault()
           if (pending) return
           const formData = new FormData(event.currentTarget)
-          // Only a listed soup shows its photos, so only then are there changes to send.
-          if (formData.has("recipeUrl") && (photos.added.length || photos.removed.length)) {
+          // Only a recipe of photos keeps them, so only then are there changes to send.
+          if (formData.get("recipeKind") === "photos" && (photos.added.length || photos.removed.length)) {
             formData.set("photosFollow", "yes")
           }
           React.startTransition(() => {
@@ -321,7 +315,7 @@ function HostRsvpEditor({
                 </FieldError>
               ) : (
                 <FieldDescription id="host-rsvp-soup-name-description">
-                  {savedRecipe
+                  {savedRecipe.kind !== "none"
                     ? "Clear the name to remove the soup and its recipe."
                     : initial.soup
                       ? "Clear the name to remove the soup."
@@ -333,7 +327,7 @@ function HostRsvpEditor({
           {attendance === "attending" && soupName.trim() !== "" && (
             <RecipeFields
               id="host-rsvp"
-              description="Optional. A link, the recipe written out, photos of it, or any of them. Public once saved."
+              saved={savedRecipe.kind}
               value={recipe}
               onChange={setRecipe}
               photos={photos}
@@ -381,7 +375,7 @@ function HostRsvpEditor({
             </p>
             <p className="text-sm text-muted-foreground">
               {initial.soup
-                ? `The response and its soup${savedRecipe ? ", with its recipe," : ""} will be deleted, and the guest’s private link will stop working.`
+                ? `The response and its soup${savedRecipe.kind !== "none" ? ", with its recipe," : ""} will be deleted, and the guest’s private link will stop working.`
                 : "The response will be deleted, and the guest’s private link will stop working."}
               {" "}This cannot be undone.
             </p>

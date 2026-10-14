@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
 import { Container } from "@/components/layout/container"
@@ -9,6 +8,7 @@ import {
   SectionHeader,
   SectionTitle,
 } from "@/components/layout/section"
+import { RecipeLink } from "@/components/recipe-link"
 import { getPublicSoups } from "@/lib/public-soups"
 
 async function SoupList() {
@@ -47,16 +47,7 @@ async function SoupList() {
               Brought by {soup.contributorName}
             </p>
           </div>
-          {soup.recipePath && (
-            <Link
-              href={soup.recipePath}
-              // The list's links would otherwise all read "Recipe".
-              aria-label={`Recipe for ${soup.name}`}
-              className="shrink-0 underline underline-offset-4"
-            >
-              Recipe
-            </Link>
-          )}
+          <RecipeLink soup={soup} className="shrink-0 underline underline-offset-4" />
         </li>
       ))}
     </ul>

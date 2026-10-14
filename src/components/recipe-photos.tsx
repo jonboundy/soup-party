@@ -4,7 +4,7 @@ import * as React from "react"
 import { cn } from "cn"
 
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Field, FieldDescription, FieldTitle } from "@/components/ui/field"
+import { Field, FieldDescription } from "@/components/ui/field"
 import {
   RECIPE_PHOTO_LIMIT,
   recipePhotoCount,
@@ -77,8 +77,7 @@ function RecipePhotoField({
   }
 
   return (
-    <Field aria-labelledby={`${id}-recipe-photos-title`}>
-      <FieldTitle id={`${id}-recipe-photos-title`}>Photos</FieldTitle>
+    <Field aria-label="Photos of the recipe">
       {photos.length > 0 && (
         <ul className="grid grid-cols-3 gap-3">
           {photos.map((photo, index) => (

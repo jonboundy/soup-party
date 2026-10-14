@@ -101,7 +101,7 @@ export async function updateRsvp(token: unknown, input: RsvpInput) {
 }
 
 /**
- * Replaces an RSVP's answers and its soup in one transaction. False when no
+ * Replaces an RSVP's answers, its soup and its recipe in one transaction. False when no
  * such RSVP exists. The caller has already authorized the write: a guest by
  * the token behind the hash, the host by their session.
  */
@@ -124,6 +124,9 @@ export async function writeRsvp(where: { editTokenHash: string } | { id: string 
       if (input.soup) {
         const soup = { ...input.soup, normalizedName: normalizeSoupName(input.soup.name) };
         await tx.soup.upsert({ where: { rsvpId: id }, create: { ...soup, rsvpId: id }, update: soup });
+        // A recipe is one kind of thing: a link, text or no recipe at all
+        // replaces the photos, which only a recipe of photos keeps.
+        if (!input.recipePhotos) await tx.recipePhoto.deleteMany({ where: { soup: { rsvpId: id } } });
       } else {
         await tx.soup.deleteMany({ where: { rsvpId: id } });
       }

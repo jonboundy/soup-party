@@ -24,6 +24,8 @@ export type RecipePhotoState =
   | { status: "full" }
   /** The response has no soup for the photo to belong to. */
   | { status: "no-soup" }
+  /** The soup's recipe is a link or text, which photos cannot join. */
+  | { status: "other-recipe" }
   | { status: "unauthorized" }
   | { status: "rate-limited" }
   /** Not saved. Sending it again may work. */

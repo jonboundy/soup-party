@@ -2,6 +2,7 @@ import * as React from "react"
 import Link from "next/link"
 import { unstable_rethrow } from "next/navigation"
 
+import { RecipeLink } from "@/components/recipe-link"
 import { guestNames } from "@/lib/guest-names"
 import type { HostOverview, HostRsvp } from "@/lib/host-rsvps"
 
@@ -160,15 +161,10 @@ async function HostDashboard() {
               {rsvp.soup ? (
                 <>
                   <p className="font-medium">{rsvp.soup.name}</p>
-                  {rsvp.soup.recipePath && (
-                    <Link
-                      href={rsvp.soup.recipePath}
-                      aria-label={`Recipe for ${rsvp.soup.name}`}
-                      className="mt-2 inline-block text-sm underline underline-offset-4"
-                    >
-                      Recipe
-                    </Link>
-                  )}
+                  <RecipeLink
+                    soup={rsvp.soup}
+                    className="mt-2 inline-block text-sm underline underline-offset-4"
+                  />
                 </>
               ) : (
                 <p className="text-muted-foreground">Soup to be decided.</p>

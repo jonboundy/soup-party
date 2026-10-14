@@ -240,6 +240,17 @@ describe("Soup", () => {
     }
   });
 
+  it("holds a recipe to a link or the recipe written out, not both", async () => {
+    await expect(
+      db.rsvp.create({
+        data: {
+          ...attending(),
+          soup: { create: { ...minestrone, recipeUrl: "https://example.com/minestrone", recipeText: "Simmer." } },
+        },
+      }),
+    ).rejects.toThrow("soups_recipe_kind_check");
+  });
+
   it("rejects a blank written recipe", async () => {
     await expect(
       db.rsvp.create({ data: { ...attending(), soup: { create: { ...minestrone, recipeText: " " } } } }),
