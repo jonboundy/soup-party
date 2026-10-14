@@ -21,7 +21,8 @@ function Hero() {
           </p>
           <h1 className="type-display">Soup is happening.</h1>
           <p className="type-lead mt-5 text-muted-foreground sm:mt-8">
-            Everyone brings soup. Everyone eats soup.
+            Everyone brings soup. Everyone eats soup.{" "}
+            <span className="whitespace-nowrap">Also bird night.</span>
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-2 sm:mt-12">
             <RsvpLink className={buttonVariants({ size: "lg" })} newLabel="I'll be there" />

@@ -98,13 +98,22 @@ async function Instructions() {
           >
             Details
           </h2>
-          {instructions ? (
-            <p className="type-lead max-w-2xl whitespace-pre-line">
-              {instructions}
+          <div className="flex flex-col gap-4">
+            {instructions ? (
+              <p className="type-lead max-w-2xl whitespace-pre-line">
+                {instructions}
+              </p>
+            ) : (
+              <p className="type-lead text-muted-foreground">
+                To be announced.
+              </p>
+            )}
+            {/* Bird night is the games. In the code rather than the
+                `events` row, so it does not depend on the database. */}
+            <p className="type-lead max-w-2xl">
+              It is also bird night. Bring your games.
             </p>
-          ) : (
-            <p className="type-lead text-muted-foreground">To be announced.</p>
-          )}
+          </div>
         </Reveal>
       </Container>
     </Section>

@@ -33,6 +33,10 @@ These supersede the PRD wording summarized below wherever the two disagree. The 
 
 - **Remember an RSVP after reload.** Successful guest creation, edits and cancellation set a private cookie for 180 days. Returning in that browser shows the current saved receipt and edit link instead of another RSVP form; the header and hero say “Your RSVP.” Cancellations remain remembered and can be restored with their original link. Guests still save that link for other devices. Implemented without a ticket or database migration.
 
+## Changed by Jon on 2026-10-14
+
+- **Bird night.** Games are played at the party, which Jon and his friends call “bird night.” He wanted it known without standing out. From four placements he chose two: the hero's supporting line ends “Also bird night.”, and the Details band has a second paragraph under the instructions, in the same colour as they are (Jon first had it muted, then asked for the match), “It is also bird night. Bring your games.” Both are in the code, not the `events` row. Left out: a fourth fact beside the date, time and location, and the RSVP confirmation. Lowercase “bird night” as Jon wrote it; he was asked about capitals and did not say. No ticket. Implemented in `src/components/home/hero.tsx` and `src/components/home/event-details.tsx`.
+
 ## v1.0 — Invitation-ready launch (label `v1-0`, SP-6..SP-22)
 - Responsive public landing page: minimalist hero, event info, RSVP call-to-action, soup registry.
 - RSVP attending/declining, party size, name, optional soup registration.
