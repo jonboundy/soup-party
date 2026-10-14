@@ -249,8 +249,9 @@
 }
 
 /* The event's title above the hero's headline. "Electric Boogaloo" is a neon
-   sign: it flickers on once as the page loads and stays lit. Its own styles
-   are the lit sign, so that is what reduced motion gets. */
+   sign: it sputters on as the page loads, then, like an old sign on a
+   business, buzzes off for a moment every so often. Its own styles are the
+   lit sign, so that is what reduced motion gets. */
 @layer components {
   [data-slot="event-title"] {
     font-size: clamp(0.95rem, 0.85rem + 0.5vw, 1.25rem);
@@ -268,7 +269,9 @@
     text-shadow: var(--glow);
     /* A narrow screen breaks the title at the colon, never inside the sign. */
     white-space: nowrap;
-    animation: neon-on 1.1s linear 0.3s backwards;
+    animation:
+      neon-on 1.8s step-end 0.3s backwards,
+      neon-buzz 14s step-end 2.1s infinite;
   }
   @media (prefers-reduced-motion: reduce) {
     [data-slot="event-title"] > span {
@@ -283,13 +286,27 @@
   }
 }
 
-/* Off, two short flashes, then on. It ends on the sign's own styles. */
+/* Off, four short flashes, then on. It ends on the sign's own styles. Each
+   keyframe holds until the next, so the sign snaps rather than fades. */
 @keyframes neon-on {
-  0%, 12%, 17%, 34%, 39%, 52% {
+  0%, 14%, 27%, 45%, 59% {
     color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
     text-shadow: none;
   }
-  13%, 16%, 35%, 38%, 53% {
+  10%, 24%, 40%, 56%, 68% {
+    color: var(--brand);
+    text-shadow: var(--glow);
+  }
+}
+
+/* Lit, with two uneven bursts a cycle: two flickers, then later three, so
+   the gaps between them do not feel like a metronome. */
+@keyframes neon-buzz {
+  30%, 31.6%, 85%, 86%, 87.3% {
+    color: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+    text-shadow: none;
+  }
+  30.5%, 32.1%, 85.4%, 86.8%, 87.6% {
     color: var(--brand);
     text-shadow: var(--glow);
   }
