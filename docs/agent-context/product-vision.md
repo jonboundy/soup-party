@@ -20,7 +20,7 @@ Soup Party is a small, exceptionally well-designed RSVP website for a casual sou
 - Hero: "Soup is happening."
 - Supporting: "Everyone brings soup. Everyone eats soup."
 - Primary action: "I'll be there" or "RSVP"
-- Registry title: "The soups."
+- Registry title: "The soups" (no full stop since 2026-10-13; Jon keeps one only on the hero. The RSVP section is headed "RSVP")
 - Empty registry: "No soups yet."
 - RSVP confirmation: "You're on the list."
 - Soup confirmation: "Your soup has been registered."

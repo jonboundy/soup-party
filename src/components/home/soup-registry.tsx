@@ -71,7 +71,7 @@ async function SoupRegistry() {
     <Section id="soups" aria-labelledby="soups-title" className="border-t">
       <Container>
         <SectionHeader reveal>
-          <SectionTitle id="soups-title">The soups.</SectionTitle>
+          <SectionTitle id="soups-title">The soups</SectionTitle>
         </SectionHeader>
         {list}
       </Container>
