@@ -18,6 +18,7 @@ These supersede the PRD wording summarized below wherever the two disagree. The 
 ## Changed by Jon on 2026-10-13
 
 - **The registry's rows are tighter, and the page stays one scroll.** Jon expects about ten soups. He considered making the three sections tabs or pages of their own, and a registry that scrolls in place, and chose shorter rows instead: from the `sm` breakpoint a soup, who is bringing it and its recipe link share one line in aligned columns, and on a phone the contributor stays under the soup with less padding. Every soup remains visible without a click. Implemented.
+- **Two sponsors, named in the footer.** GoochBuddy (https://goochbuddy.netlify.app/) and Opossum Catcher (https://www.jonboundy.com/opossum) are joke sites of Jon's that his friends like. The footer of every page reads “Sponsored by GoochBuddy and Opossum Catcher” opposite the copyright, each name a link that opens in a new tab. Jon chose this over a line above the hero's headline, a band after the RSVP form, and a section of its own with a tile for each. No ticket. Implemented in `src/components/layout/site-footer.tsx`.
 
 ## v1.0 — Invitation-ready launch (label `v1-0`, SP-6..SP-22)
 - Responsive public landing page: minimalist hero, event info, RSVP call-to-action, soup registry.
