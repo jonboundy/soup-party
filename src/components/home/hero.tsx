@@ -4,6 +4,7 @@ import { cn } from "cn"
 import { AlphabetSoup } from "@/components/home/alphabet-soup"
 import { EventFacts } from "@/components/home/event-details"
 import { Container } from "@/components/layout/container"
+import { RsvpLink } from "@/components/layout/rsvp-link"
 import { Section } from "@/components/layout/section"
 import { buttonVariants } from "@/components/ui/button"
 
@@ -23,9 +24,7 @@ function Hero() {
             Everyone brings soup. Everyone eats soup.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-2 sm:mt-12">
-            <Link href="/#rsvp" className={buttonVariants({ size: "lg" })}>
-              I&apos;ll be there
-            </Link>
+            <RsvpLink className={buttonVariants({ size: "lg" })} newLabel="I'll be there" />
             <Link
               href="/#soups"
               className={cn(buttonVariants({ variant: "link" }), "px-0")}

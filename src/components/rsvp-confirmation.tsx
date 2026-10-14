@@ -25,9 +25,11 @@ function Note({ children }: { children: React.ReactNode }) {
 function RsvpConfirmation({
   state,
   editing,
+  focusOnMount = true,
 }: {
   state: Extract<RsvpFormState, { editPath: string }>
   editing: boolean
+  focusOnMount?: boolean
 }) {
   const title = React.useRef<HTMLHeadingElement>(null)
   // The edit page has no section title above this one. The homepage does.
@@ -36,8 +38,8 @@ function RsvpConfirmation({
   // The form, and whatever had focus in it, is gone. Focus moves here so
   // keyboard and screen reader users land on the outcome.
   React.useEffect(() => {
-    title.current?.focus()
-  }, [])
+    if (focusOnMount) title.current?.focus()
+  }, [focusOnMount])
 
   return (
     <div className="flex max-w-md animate-in flex-col gap-8 duration-500 fade-in-0">
@@ -111,8 +113,7 @@ function RsvpConfirmation({
             ? "Use it to change your RSVP or cancel."
             : "Use it if your plans change."
         }${
-          // A reload starts a new form. The edit page is the link itself.
-          editing ? "" : " It will not be shown again."
+          editing ? "" : " This browser remembers your RSVP. Save the link to use it on another device."
         } Anyone with this link can edit your response.`}
       />
       {editing && (

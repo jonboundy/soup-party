@@ -9,7 +9,7 @@ import { createRsvp } from "@/lib/rsvp";
 import { clearRsvps, soupNamed } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ set: vi.fn() }), headers: async () => new Headers() }));
 
 const ada = { name: "Ada Lovelace", attendance: "attending" };
 

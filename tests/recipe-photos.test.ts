@@ -14,7 +14,7 @@ import { clearRsvps, soupNamed } from "./database";
 import { metadata, photoForm, testJpeg } from "./jpeg-fixture";
 
 vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), refresh: vi.fn(), updateTag: vi.fn() }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-vercel-forwarded-for": "192.0.2.1" }) }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ set: vi.fn() }), headers: async () => new Headers({ "x-vercel-forwarded-for": "192.0.2.1" }) }));
 
 const guest = { attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING" as const };
 const fields = { name: "Ada Lovelace", attendance: "attending", soupName: "Minestrone" };

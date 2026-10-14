@@ -8,7 +8,7 @@ import { readPublicRecipe, readPublicSoups } from "@/lib/public-soups";
 import { clearRsvps, soupNamed } from "./database";
 
 vi.mock("next/cache", () => ({ refresh: vi.fn(), updateTag: vi.fn() }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ set: vi.fn() }), headers: async () => new Headers() }));
 const original = {
   attendeeName: "Ada Lovelace", secondName: "Charles Babbage", status: "ATTENDING" as const,
   soup: soupNamed("Minestrone"),

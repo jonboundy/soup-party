@@ -29,6 +29,10 @@ These supersede the PRD wording summarized below wherever the two disagree. The 
 
 - **Browser and link-preview images.** On 2026-10-13 Jon chose to copy the existing cascading soup bowls for the favicon and chose the dark neon “Electric Boogaloo” sequel design (option 2) for the full-size link preview. Implemented with a tomato bowl SVG, ICO fallback and Apple icon, plus one static 1200 × 630 Open Graph image also used for the large Twitter card. Sources and export notes are in [preview assets](../brand/README.md). No ticket.
 
+## Changed by Jon on 2026-10-13
+
+- **Remember an RSVP after reload.** Successful guest creation, edits and cancellation set a private cookie for 180 days. Returning in that browser shows the current saved receipt and edit link instead of another RSVP form; the header and hero say “Your RSVP.” Cancellations remain remembered and can be restored with their original link. Guests still save that link for other devices. Implemented without a ticket or database migration.
+
 ## v1.0 — Invitation-ready launch (label `v1-0`, SP-6..SP-22)
 - Responsive public landing page: minimalist hero, event info, RSVP call-to-action, soup registry.
 - RSVP attending/declining, party size, name, optional soup registration.
