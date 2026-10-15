@@ -29,7 +29,22 @@ describe("soupStirTracker", () => {
         if (tracker.move(time)) starts.push(time);
       }
     }
-    expect(starts).toEqual([0, 1500, 3000]);
+    // Each counts once it has gone on for half a second.
+    expect(starts).toEqual([520, 2020, 3520]);
+  });
+
+  it("does not count movement shorter than half a second", () => {
+    const tracker = soupStirTracker();
+    for (let move = 0; move < 12; move++) {
+      expect(tracker.move(move * 40)).toBe(false);
+    }
+    expect(tracker.stirring).toBe(false);
+    // After a pause, the next movement starts its half second afresh.
+    expect(tracker.move(800)).toBe(false);
+    expect(tracker.move(1000)).toBe(false);
+    expect(tracker.move(1200)).toBe(false);
+    expect(tracker.move(1300)).toBe(true);
+    expect(tracker.stirring).toBe(true);
   });
 
   it("counts a continuous stir once, regardless of how long it lasts", () => {

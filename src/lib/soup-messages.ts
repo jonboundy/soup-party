@@ -28,15 +28,31 @@ const STIRS_BETWEEN = 1;
 // A pause in the person's movement separates stirs even while the broth is
 // still spinning. Waiting for the broth to slow would swallow short pauses.
 const STIR_PAUSE = 200;
+// Movement must go on this long to be a stir, so a cursor passing over the
+// bowl does not break up a word or form the next one.
+const STIR_TIME = 500;
 
 export function soupStirTracker() {
+  let began = -Infinity;
   let moved = -Infinity;
+  let counted = false;
   return {
-    /** Records movement; true when it starts a new stir. */
+    /** Records movement; true when it has gone on long enough to become a new stir. */
     move(now: number) {
-      const fresh = now - moved > STIR_PAUSE;
+      if (now - moved > STIR_PAUSE) {
+        began = now;
+        counted = false;
+      }
       moved = now;
-      return fresh;
+      if (counted || now - began < STIR_TIME) {
+        return false;
+      }
+      counted = true;
+      return true;
+    },
+    /** Whether the latest movement has gone on long enough to be a stir. */
+    get stirring() {
+      return counted;
     },
     /** The person has stopped moving long enough for a message to form. */
     paused(now: number) {
