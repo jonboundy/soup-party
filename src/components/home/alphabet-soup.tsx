@@ -182,20 +182,24 @@ function AlphabetSoup({ className, ...props }: React.ComponentProps<"div">) {
         const now = performance.now()
         const locked = message !== null && (!spelled || now < protectedUntil)
         const fresh = stirs.move(now)
-        // Stirring around a protected word does not request another message.
-        // Once the hold ends, even an ongoing movement can release the word
-        // and begin the next stir.
-        if (!locked && (fresh || message)) {
-          queue.stir()
-          reletter()
-        }
-        stirring = true
-        if (message && !locked) {
-          message = null
-          spelled = false
-          protectedUntil = 0
-          scatterSoup(soup)
-          root.setAttribute("aria-label", LABEL)
+        // A brief movement moves the broth but is not yet a stir: it neither
+        // breaks up a word nor forms the next one.
+        if (stirs.stirring) {
+          // Stirring around a protected word does not request another message.
+          // Once the hold ends, even an ongoing movement can release the word
+          // and begin the next stir.
+          if (!locked && (fresh || message)) {
+            queue.stir()
+            reletter()
+          }
+          stirring = true
+          if (message && !locked) {
+            message = null
+            spelled = false
+            protectedUntil = 0
+            scatterSoup(soup)
+            root.setAttribute("aria-label", LABEL)
+          }
         }
         settled = false
         run()
