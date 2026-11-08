@@ -136,6 +136,12 @@ A recipe that is photos may have up to three, of a cookbook page or a handwritte
 
 The list is included in the initial HTML, with a “Loading…” label on the Soups navigation link while navigation is pending. The registry shows “No soups yet.” when empty (including previews without a database), and reports an unavailable state on database errors.
 
+## Public guest list
+
+Below the soups, “Who’s coming” lists every attending response by first names, alphabetically, whether or not it has a soup: “Ada”, or “Ada and Charles” for two. Nothing marks who has a soup, and there is no count. It says “No guests yet.” when empty, including previews without a database. Declined and cancelled guests are not listed. The RSVP form tells guests that only first names appear on the site.
+
+`getPublicGuests` in `src/lib/public-soups.ts` selects only names and returns first names. It shares the registry's `soups` cache tag and timings. Every successful guest save expires the tag, including a new RSVP without a soup, which the soups alone did not need.
+
 ## Alphabet soup
 
 The hero's bowl (`src/components/home/alphabet-soup.tsx`) is tomato alphabet soup seen from above, and it can be stirred.

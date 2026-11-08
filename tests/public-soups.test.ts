@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db } from "@/lib/db";
-import { getPublicRecipe, getPublicSoups } from "@/lib/public-soups";
+import { getPublicGuests, getPublicRecipe, getPublicSoups } from "@/lib/public-soups";
 import { createRsvp } from "@/lib/rsvp";
 
 import { clearRsvps, soupNamed } from "./database";
@@ -168,5 +168,38 @@ describe("public recipes", () => {
     const { soupId } = await registerWithRecipe();
     vi.stubEnv("DATABASE_URL", "");
     expect(await getPublicRecipe(soupId)).toBeNull();
+  });
+});
+
+describe("public guest list", () => {
+  it("is empty with no responses", async () => {
+    expect(await getPublicGuests()).toEqual([]);
+  });
+
+  it("lists every attending response by first names, with or without a soup, alphabetically", async () => {
+    await createRsvp({ attendeeName: "Zora Neale Hurston", secondName: null, status: "ATTENDING", soup: null });
+    const { id, editToken } = await register("Minestrone", "Ada Lovelace", "Charles Babbage");
+    await createRsvp({ attendeeName: "grace Hopper", secondName: null, status: "ATTENDING", soup: null });
+    const rsvp = await db.rsvp.findUniqueOrThrow({ where: { id } });
+    const guests = await getPublicGuests();
+
+    expect(guests).toEqual(["Ada and Charles", "grace", "Zora"]);
+    for (const privateValue of [id, editToken, rsvp.editTokenHash, "Lovelace", "Babbage", "Hopper", "Minestrone"]) {
+      expect(JSON.stringify(guests)).not.toContain(privateValue);
+    }
+  });
+
+  it("leaves out declined guests", async () => {
+    const { id } = await register("Hidden soup", "Grace Hopper", "Alan Turing");
+    await db.rsvp.update({ where: { id }, data: { status: "DECLINED", partySize: null } });
+    await register();
+
+    expect(await getPublicGuests()).toEqual(["Ada"]);
+  });
+
+  it("is empty without a database", async () => {
+    await register();
+    vi.stubEnv("DATABASE_URL", "");
+    expect(await getPublicGuests()).toEqual([]);
   });
 });
