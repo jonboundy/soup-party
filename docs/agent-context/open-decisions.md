@@ -9,6 +9,8 @@ PRD §11 listed these as open on 2026-10-10 (it still lists the settled ones bel
 
 **Settled:** date and time — on 2026-10-12 Jon gave Saturday, November 21, 2026 at 3:00 PM. He did not name a time zone; `America/New_York`, his Mac's, is assumed and unconfirmed. This is not in the code: it is set on the `events` row of each database, as [the data model](../data-model.md) describes.
 
+**Settled:** guests without a soup are public — on 2026-11-08 Jon chose to list every attending guest by first name in a “Who’s coming” section, soup or not. See [architecture](architecture.md).
+
 **Settled:** public contributor names — Jon chose first names only during SP-15. The RSVP form explains this; the public query derives the first whitespace-delimited part of the RSVP name on the server.
 
 **Settled:** one soup per response — on 2026-10-11 Jon limited a response to one person or a couple, named individually, sharing one soup. Both first names are public beside it (“Brought by Jon and Gigi”).

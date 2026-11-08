@@ -46,6 +46,32 @@ export async function readPublicSoups(excludeEditTokenHash?: string) {
   }));
 }
 
+/** Everyone attending, by first names. */
+export async function getPublicGuests() {
+  "use cache";
+  // Shares the registry's tag and timings: the same writes change both.
+  cacheLife({ stale: 300, revalidate: 1, expire: 300 });
+  cacheTag("soups");
+
+  return readPublicGuests();
+}
+
+export async function readPublicGuests() {
+  // Preview deployments have no database.
+  if (!process.env.DATABASE_URL) return [];
+
+  const { db } = await import("@/lib/db");
+  const rsvps = await db.rsvp.findMany({
+    where: { status: "ATTENDING" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { attendeeName: true, secondName: true },
+  });
+
+  return rsvps
+    .map(publicGuestNames)
+    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}
+
 /** A soup's recipe page, or null when there is nothing public to show at that address. */
 export async function getPublicRecipe(id: unknown) {
   // Checked first, so that only a possible id is ever a cache entry.

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Instructions } from "@/components/home/event-details";
+import { GuestList } from "@/components/home/guest-list";
 import { Hero } from "@/components/home/hero";
 import { Rsvp } from "@/components/home/rsvp";
 import { SoupCascade } from "@/components/home/soup-cascade";
@@ -24,6 +25,7 @@ export default function Home() {
       <Hero />
       <Instructions />
       <SoupRegistry />
+      <GuestList />
       <Rsvp />
     </>
   );

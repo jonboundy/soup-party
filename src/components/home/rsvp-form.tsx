@@ -230,7 +230,7 @@ function RsvpForm({
             <FieldError id="rsvp-name-error">{errors.name}</FieldError>
           ) : (
             <FieldDescription id="rsvp-name-description">
-              Only first names appear beside your soup.
+              Only first names appear on the site.
             </FieldDescription>
           )}
         </Field>

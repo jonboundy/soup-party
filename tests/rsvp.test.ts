@@ -50,8 +50,9 @@ describe("submitRsvp", () => {
     const result = await submit({ name: " Ada Lovelace ", attendance: "attending" });
 
     expect(result).toEqual({ status: "attending", name: "Ada Lovelace", secondName: null, soup: null, editPath: expect.any(String) });
-    expect(updateTag).not.toHaveBeenCalled();
-    expect(refresh).not.toHaveBeenCalled();
+    // Without a soup, the guest is still on the public guest list.
+    expect(updateTag).toHaveBeenCalledWith("soups");
+    expect(refresh).toHaveBeenCalledOnce();
     expect(await db.rsvp.findMany()).toMatchObject([
       { attendeeName: "Ada Lovelace", secondName: null, status: "ATTENDING", partySize: 1 },
     ]);

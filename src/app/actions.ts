@@ -117,11 +117,9 @@ async function saveRsvp(formData: FormData, editToken?: string): Promise<RsvpFor
 
   const { attendeeName: name, secondName, soup } = parsed.data;
   await rememberRsvp(editToken!);
-  // Edits may remove a soup or change its public contributor name.
-  if (soup || editing) {
-    updateTag("soups");
-    refresh();
-  }
+  // Every attending response is public, on the guest list if not the soups.
+  updateTag("soups");
+  refresh();
   const editPath = `/rsvp/edit?token=${editToken}`;
   return { status: "attending", name, secondName, soup, editPath };
 }
